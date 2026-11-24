@@ -162,7 +162,7 @@ def main(src, out):
         main=dict(dist=round(main_d), time=round(main_t), pace=round(main_t / main_d * 1000, 1) if main_d else None,
                   hr=round(main_hr), zones=mz),
         recovery=dict(count=len(recs_b), pace=round(rec_t / rec_d * 1000, 1) if rec_d else None, hr=round(rec_hr),
-                      paces=[b['pace'] for b in recs_b]),
+                      avg_dist=round(rec_d / len(recs_b)) if recs_b else None, paces=[b['pace'] for b in recs_b]),
         reps=reps, recoveries=recs_b, gps_extent_m=extent,
     )
     json.dump(data, open(os.path.join(out, 'training.json'), 'w'), ensure_ascii=False, indent=1)
@@ -181,7 +181,7 @@ def main(src, out):
         print(f"  세트{n + 1}: {r['dist']:.0f}m (계획 {r['planned']}) {pace_str(r['pace'])} 목표 {tgt} "
               f"{'적중' if r.get('hit') else ''} 심박 {r['hr']:.0f}/{r['maxhr']} Z4+Z5 {round((z[3] + z[4]) / zt_ * 100)}% "
               f"회복 {r['hr_rec']} 창 {r['win']}")
-    print(f"회복조깅 {len(recs_b)}회: 평균 {pace_str(data['recovery']['pace']) if data['recovery']['pace'] else '-'} · 심박 {round(rec_hr)}")
+    print(f"회복조깅 {len(recs_b)}회: 평균 거리 {data['recovery']['avg_dist']}m · 평균 {pace_str(data['recovery']['pace']) if data['recovery']['pace'] else '-'} · 심박 {round(rec_hr)}")
     if extent:
         print(f"GPS 범위 약 {extent[0]:.0f}m × {extent[1]:.0f}m (트랙이면 ~90×180m)")
     print(f"→ {out}/training.json, {out}/run-data.json 저장")

@@ -29,6 +29,7 @@ const REPS = [
 ];
 const FINAL = { pace: 206.9, dist: 518, lo: 215, hi: 220, hr: 164 };
 const RECS = [344.0, 370.9, 374.9, 386.5, 390.1];
+const RECAVG = { dist: 520, pace: 372.4, hr: 138 }; // 회복 조깅 5회 평균 (거리 519.6m)
 // 심박존 (최대심박 186 기준, Garmin 설정값) · 존별 체류 시간(초) [Z1..Z5]
 const ZB = [117, 131, 144, 158, 172, 186];
 const ZC = ['#7C8A9C', '#5CC8FF', '#3DDC84', '#FFB020', '#FF5A5F'];
@@ -310,121 +311,97 @@ function zoneOf(hr) { for (let i = 4; i >= 0; i--) if (hr >= ZB[i]) return i; re
 const fmtDur = s => { s = Math.round(s); return `${Math.floor(s / 60)}:${pad2(s % 60)}`; };
 
 /* ================= 장면들 ================= */
-// S1: 인트로
+// S1: 인트로 — 훈련 이름을 길게 보여준다 (0.1s ~ b8)
+/* 훈련 이름 그룹: 기준점 (72, 600). up=0 원래 크기, up=1 상단 배지 크기/위치 */
+function titleGroup(t, up) {
+  const sc = lerp(1, .135, up);
+  ctx.save(); ctx.globalAlpha *= 1 - P(up, .7, 1);
+  const drift = 1 + .025 * E.ioC(P(t, b(4), b(8))) * (1 - up);
+  ctx.translate(72, lerp(600, 108, up)); ctx.scale(sc * drift, sc * drift); ctx.translate(-72, -600);
+  const s1 = lerp(1.7, 1, E.outX(P(t, b(1), b(1) + .25)));
+  ctx.save(); ctx.translate(72, 600); ctx.scale(s1, s1); ctx.globalAlpha *= P(t, b(1), b(1) + .05);
+  txt('2KM', -4, 0, { size: 300, fam: NUM, weight: 400 }); ctx.restore();
+  const w = measure('2KM', 300, 400, NUM);
+  const s2 = lerp(1.7, 1, E.outX(P(t, b(2), b(2) + .25)));
+  ctx.save(); ctx.translate(72 + w + 20, 600); ctx.scale(s2, s2); ctx.globalAlpha *= P(t, b(2), b(2) + .05);
+  txt('×5', 0, 0, { size: 300, fam: NUM, weight: 400, color: C.lime }); ctx.restore();
+  maskText('+1KM', 70, 790, { size: 180, fam: NUM, weight: 400, color: C.white }, 1 - E.outX(P(t, b(3), b(3) + .3)));
+  const iw = measure('+1KM', 180, 400, NUM) + 30;
+  maskText('롱 인터벌', 72 + iw, 718, { size: 62, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(4), b(4) + .3)));
+  maskText('빌드업', 72 + iw, 790, { size: 62, weight: 900, color: C.white }, 1 - E.outX(P(t, b(4) + .12, b(4) + .42)));
+  ctx.restore();
+}
 function sIntro(t) {
-  bgFill(C.bg, .06 + .08 * pulse(t, 6, 0, 11));
-  const tr = E.ioC(P(t, .3, b(8)));
-  const zoomOut = E.ioQ(P(t, b(8), b(10)));
-  track({ x: 540, y: lerp(980, 930, zoomOut), s: lerp(4.6, 5.6, zoomOut), tilt: lerp(.42, .62, zoomOut), rot: rad(lerp(-8, 0, zoomOut)) },
-    { fill: t > b(8) ? C.track : null, infield: C.bg, draw: tr, alpha: lerp(.5, 1, zoomOut), runner: t > b(9) ? (t - b(9)) * 260 : null, trail: 120 });
+  bgFill(C.bg, .06 + .1 * pulse(t, 6, 0, 8));
+  const tr = E.ioC(P(t, .3, b(6)));
+  track({ x: 540, y: 1110, s: 4.8, tilt: .45 }, { fill: t > b(4) ? C.track : null, infield: C.bg, draw: tr, alpha: .9, runner: t > b(4) ? (t - b(4)) * 220 : null, trail: 120 });
+  // 날짜 · 장소
   const s0 = '2026.11.04  수요일';
-  const n = Math.floor(clamp((t - .25) / .7) * [...s0].length);
-  if (t < b(4)) {
-    const a = 1 - P(t, b(4) - .15, b(4));
-    txt([...s0].slice(0, n).join(''), 72, 178, { size: 28, fam: MONO, weight: 700, color: C.lime, alpha: a });
-    if (Math.floor(t * 4) % 2 === 0 && n < [...s0].length) txt('▍', 72 + measure([...s0].slice(0, n).join(''), 28, 700, MONO), 178, { size: 28, fam: MONO, color: C.lime });
+  const n = Math.floor(clamp((t - .2) / .6) * [...s0].length);
+  txt([...s0].slice(0, n).join(''), 72, 178, { size: 28, fam: MONO, weight: 700, color: C.lime });
+  if (Math.floor(t * 4) % 2 === 0 && n < [...s0].length) txt('▍', 72 + measure([...s0].slice(0, n).join(''), 28, 700, MONO), 178, { size: 28, fam: MONO, color: C.lime });
+  const lu = E.outX(P(t, .8, 1.1));
+  if (lu > 0) { ctx.save(); ctx.globalAlpha = lu; pin(84, 222, 12, C.white); ctx.restore(); maskText('목동교 멀티스포츠존', 106, 234, { size: 32, weight: 800 }, 1 - lu); }
+  maskText('오늘의 훈련', 72, 318, { size: 46, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(0), b(0) + .3)));
+  titleGroup(t, 0);
+  maskText('2000m × 5 · 세트마다 페이스를 끌어올린다', 72, 880, { size: 36, weight: 700, color: C.white, alpha: .8 }, 1 - E.outX(P(t, b(5), b(5) + .3)));
+  const au = E.outX(P(t, b(6), b(6) + .35));
+  for (let k = 0; k < 3; k++) {
+    const x = 72 + k * 56 + au * 30;
+    ctx.save(); ctx.globalAlpha = au * (.35 + k * .3); ctx.strokeStyle = C.lime; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(x, 922); ctx.lineTo(x + 26, 948); ctx.lineTo(x, 974); ctx.stroke(); ctx.restore();
   }
-  if (t >= b(0) && t < b(4) + .3) {
-    const out = E.inC(P(t, b(4) - .12, b(4) + .06));
-    maskText('오늘의', 72, 520, { size: 120, weight: 900, color: C.white }, (1 - E.outX(P(t, b(0), b(0) + .3))) - out);
-    maskText('훈련', 66, 760, { size: 250, weight: 900, color: C.lime }, (1 - E.outX(P(t, b(1), b(1) + .3))) - out);
-    const pu = E.outB(P(t, b(2), b(2) + .25));
-    if (pu > 0 && out < .5) {
-      ctx.save(); ctx.translate(72, 850); ctx.scale(pu, pu); ctx.translate(-72, -850);
-      const w = measure('목동교 멀티스포츠존', 32, 800) + 92;
-      rrect(72, 820, w, 60, 30); ctx.fillStyle = C.lime; ctx.fill(); pin(106, 852, 12, C.bg);
-      txt('목동교 멀티스포츠존', 130, 862, { size: 32, weight: 800, color: C.bg }); ctx.restore();
-    }
-    const pu2 = E.outX(P(t, b(3), b(3) + .3));
-    if (pu2 > 0 && out < .5) maskText('트랙 인터벌 세션', 72, 950, { size: 36, weight: 700, color: C.white, alpha: .75 }, 1 - pu2);
-  }
-  if (t >= b(4) && t < b(8) + .6) {
-    const up = E.ioQ(P(t, b(8), b(8) + .5));
-    const sc = lerp(1, .135, up);
-    ctx.save(); ctx.globalAlpha = 1 - P(up, .7, 1); ctx.translate(72, lerp(600, 108, up)); ctx.scale(sc, sc); ctx.translate(-72, -600);
-    const s1 = lerp(1.7, 1, E.outX(P(t, b(4), b(4) + .25)));
-    ctx.save(); ctx.translate(72, 600); ctx.scale(s1, s1); ctx.globalAlpha *= P(t, b(4), b(4) + .05);
-    txt('2KM', -4, 0, { size: 300, fam: NUM, weight: 400 }); ctx.restore();
-    const w = measure('2KM', 300, 400, NUM);
-    const s2 = lerp(1.7, 1, E.outX(P(t, b(5), b(5) + .25)));
-    ctx.save(); ctx.translate(72 + w + 20, 600); ctx.scale(s2, s2); ctx.globalAlpha *= P(t, b(5), b(5) + .05);
-    txt('×5', 0, 0, { size: 300, fam: NUM, weight: 400, color: C.lime }); ctx.restore();
-    maskText('+1KM', 70, 790, { size: 180, fam: NUM, weight: 400, color: C.white }, 1 - E.outX(P(t, b(6), b(6) + .3)));
-    maskText('롱 인터벌', 72 + measure('+1KM', 180, 400, NUM) + 30, 770, { size: 62, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(7), b(7) + .3)));
-    ctx.restore();
-  }
-  if (t >= b(9)) {
-    const out = E.inC(P(t, b(12) - .15, b(12)));
-    maskText('빌드업', 72, 560, { size: 120, weight: 900, color: C.white }, (1 - E.outX(P(t, b(9), b(9) + .3))) - out);
-    maskText('세트마다 페이스를 끌어올린다', 72, 640, { size: 44, weight: 700, color: C.white, alpha: .8 }, (1 - E.outX(P(t, b(10), b(10) + .3))) - out);
-    const au = E.outX(P(t, b(11), b(11) + .35));
-    for (let k = 0; k < 3; k++) {
-      const x = 72 + k * 70 + au * 40;
-      ctx.save(); ctx.globalAlpha = au * (1 - out) * (.35 + k * .3); ctx.strokeStyle = C.lime; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(x, 690); ctx.lineTo(x + 34, 726); ctx.lineTo(x, 762); ctx.stroke(); ctx.restore();
-    }
-  }
+  const ou = E.inC(P(t, b(8) - .12, b(8)));
+  if (ou > 0) { ctx.fillStyle = `rgba(11,13,16,${ou * .6})`; ctx.fillRect(0, 0, W, H); }
 }
 
-// S2a: 세션 요약 카드 (한 장에 전부) b12~b20
+// S2: 세션 요약 + 본훈련 요약 (한 장, b8 ~ b16)
 function sSummary(t) {
-  const t0 = b(12);
+  const t0 = b(8);
   bgFill(C.bg, .06 + .06 * pulse(t, 7));
-  track({ x: 540, y: 1030, s: 5.6, tilt: .62 }, { fill: C.track, infield: C.bg, runner: (t - b(9)) * 260, trail: 120, alpha: .35 });
-  const cu = E.outX(P(t, t0, t0 + .35));
-  const cx = 72, cy = 240, cw = W - 144, ch = 820;
-  ctx.save(); ctx.translate(0, (1 - cu) * 120); ctx.globalAlpha = cu;
-  rrect(cx, cy, cw, ch, 36); ctx.fillStyle = 'rgba(26,31,38,.92)'; ctx.fill(); ctx.strokeStyle = 'rgba(243,242,236,.12)'; ctx.lineWidth = 2; ctx.stroke();
+  const cu = E.outX(P(t, t0 + .1, t0 + .45));
+  const cx = 72, cy = 200, cw = W - 144, ch = 1000;
+  ctx.save(); ctx.translate(0, (1 - cu) * 140); ctx.globalAlpha = cu;
+  rrect(cx, cy, cw, ch, 36); ctx.fillStyle = 'rgba(26,31,38,.94)'; ctx.fill(); ctx.strokeStyle = 'rgba(243,242,236,.12)'; ctx.lineWidth = 2; ctx.stroke();
+  // 장소 · 날짜
+  pin(cx + 52, cy + 62, 13, C.lime);
+  txt('목동교 멀티스포츠존', cx + 78, cy + 74, { size: 32, weight: 800 });
+  txt('2026.11.04 수요일 · 기온 18°C', cx + 78, cy + 112, { size: 24, weight: 700, alpha: .55 });
+  // 세션 전체 (작게)
+  txt('세션 전체', cx + 44, cy + 190, { size: 24, weight: 800, color: C.white, alpha: .6 });
+  const ses = [['13.12', 'km'], ['57:05', ''], [fmtPace(261.1), ''], ['154', 'bpm']];
+  ses.forEach(([v, u], i) => {
+    const ui = E.outX(P(t, b(9) + i * .06, b(9) + .3 + i * .06)); const x = cx + 44 + i * 232, y = cy + 262;
+    maskText(v, x, y, { size: 62, fam: NUM, weight: 400 }, 1 - ui);
+    if (u) maskText(u, x + measure(v, 62, 400, NUM) + 6, y, { size: 22, weight: 900, color: i === 3 ? C.coral : C.lime }, 1 - ui);
+  });
+  line(cx + 40, cy + 310, cx + cw - 40, cy + 310, 1, { color: C.white, w: 1.5, alpha: .12 });
+  // 본훈련 (크게)
+  txt('본훈련', cx + 44, cy + 384, { size: 40, weight: 900, color: C.lime });
+  txt('2000m × 5 + 마지막 스텝', cx + 44 + measure('본훈련', 40, 900) + 18, cy + 382, { size: 26, weight: 700, alpha: .65 });
+  const mn = [['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']];
+  mn.forEach(([v, u, l], i) => {
+    const ui = E.outX(P(t, b(10) + i * .08, b(10) + .32 + i * .08));
+    const x = cx + 44 + (i % 2) * (cw / 2), y = cy + 520 + Math.floor(i / 2) * 160;
+    maskText(v, x - 2, y, { size: 112, fam: NUM, weight: 400 }, 1 - ui);
+    if (u) maskText(u, x + measure(v, 112, 400, NUM) + 8, y, { size: 30, weight: 900, color: i === 3 ? C.coral : C.lime }, 1 - ui);
+    maskText(l, x, y + 40, { size: 24, weight: 700, alpha: .55 }, 1 - ui);
+  });
+  // 본훈련 심박존
+  const zu = E.ioC(P(t, b(12), b(13)));
+  txt('본훈련 심박존', cx + 44, cy + 830, { size: 26, weight: 800, alpha: .7 * P(t, b(12), b(12) + .2) });
+  zoneBar(cx + 44, cy + 852, cw - 88, 34, MAINZ, zu, { labels: true, la: P(t, b(13) - .1, b(13) + .2) });
+  maskText(`Z4 역치 구간에서 ${fmtDur(MAINZ[3])} (64%)`, cx + 44, cy + 966, { size: 30, weight: 800, color: ZC[3] }, 1 - E.outX(P(t, b(13) + .2, b(13) + .5)));
   ctx.restore();
   sectionLabel('세션 요약', '01', t0, t);
-  if (cu > .05) {
-    ctx.save(); ctx.translate(0, (1 - cu) * 120);
-    pin(cx + 52, cy + 66, 13, C.lime);
-    txt('목동교 멀티스포츠존', cx + 78, cy + 78, { size: 32, weight: 800 });
-    txt('2026.11.04 수요일 · 기온 18°C', cx + 78, cy + 118, { size: 24, weight: 700, alpha: .55 });
-    line(cx + 40, cy + 156, cx + cw - 40, cy + 156, 1, { color: C.white, w: 1.5, alpha: .12 });
-    const items = [['13.12', 'km', '총 거리'], ['57:05', '', '운동 시간'], [fmtPace(261.1), '', '평균 페이스'], ['154', 'bpm', '평균 심박'], ['177', 'bpm', '최대 심박'], ['809', 'kcal', '소모 칼로리']];
-    items.forEach(([v, u, l], i) => {
-      const bi = Math.floor(i / 2); const ui = E.outX(P(t, b(12 + bi) + (i % 2) * .08, b(12 + bi) + (i % 2) * .08 + .3));
-      const x = cx + 44 + (i % 2) * (cw / 2), y = cy + 320 + Math.floor(i / 2) * 190;
-      maskText(v, x, y, { size: 130, fam: NUM, weight: 400, color: C.white }, 1 - ui);
-      if (u) maskText(u, x + measure(v, 130, 400, NUM) + 10, y, { size: 34, weight: 900, color: i >= 3 && i <= 4 ? C.coral : C.lime }, 1 - ui);
-      maskText(l, x, y + 46, { size: 26, weight: 700, color: C.white, alpha: .55 }, 1 - ui);
-    });
-    ctx.restore();
-  }
-  // 다음 장면으로 와이프
   const ou = E.inC(P(t, b(16) - .14, b(16)));
   if (ou > 0) { ctx.fillStyle = C.lime; ctx.fillRect(0, H * (1 - ou), W, H * ou); }
 }
 
-// S2b: 본훈련 개요 b20~b28
-function sMain(t) {
-  const t0 = b(16);
-  bgFill(C.bg, .1 + .12 * pulse(t, 7), 540, 700);
-  const wl = 1 - E.outX(P(t, t0, t0 + .3)); if (wl > 0) { ctx.fillStyle = C.lime; ctx.fillRect(0, 0, W, H * wl); }
-  sectionLabel('본훈련', '02', t0, t);
-  maskText('본훈련', 72, 340, { size: 120, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
-  maskText('2000m × 5 + 마지막 스텝', 72, 420, { size: 44, weight: 800, color: C.lime }, 1 - E.outX(P(t, t0 + .1, t0 + .4)));
-  const items = [['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']];
-  items.forEach(([v, u, l], i) => {
-    const ui = E.outX(P(t, b(16) + .15 + i * .08, b(16) + .45 + i * .08));
-    const x = 72 + (i % 2) * 480, y = 600 + Math.floor(i / 2) * 170;
-    maskText(v, x - 2, y, { size: 120, fam: NUM, weight: 400 }, 1 - ui);
-    if (u) maskText(u, x + measure(v, 120, 400, NUM) + 8, y, { size: 32, weight: 900, color: i === 3 ? C.coral : C.lime }, 1 - ui);
-    maskText(l, x, y + 42, { size: 26, weight: 700, alpha: .55 }, 1 - ui);
-  });
-  // 심박존 분포
-  const zu = E.ioC(P(t, b(17), b(18)));
-  maskText('본훈련 심박존 분포', 72, 1000, { size: 32, weight: 800 }, 1 - E.outX(P(t, b(17), b(17) + .3)));
-  zoneBar(72, 1030, W - 144, 46, MAINZ, zu, { labels: true, la: P(t, b(18) - .2, b(18) + .1) });
-  maskText(`Z4 역치 구간에서 ${fmtDur(MAINZ[3])} (64%)`, 72, 1175, { size: 34, weight: 800, color: ZC[3] }, 1 - E.outX(P(t, b(18) + .3, b(18) + .6)));
-}
-
 // S3: 5세트 — 페이스 · 거리 · 심박존 · 심박 추이
 function sReps(t) {
-  const k = clamp(Math.floor((lastBeat(t) - 28) / 6), 0, 4);
-  const t0 = b(28 + k * 6), bt = i => b(28 + k * 6 + i);
+  const k = clamp(Math.floor((lastBeat(t) - 16) / 8), 0, 4);
+  const t0 = b(16 + k * 8), bt = i => b(16 + k * 8 + i);
   const r = REPS[k];
   bgFill(C.bg, .1 + .14 * pulse(t, 7), 540, 560);
   speedLines(t, .2 + k * .08, 24 + k * 6);
@@ -446,7 +423,7 @@ function sReps(t) {
   rollText(prev, fmtPace(r.pace), 64, 590, { size: 260, fam: NUM, color: C.white }, P(t, t0 + .02, t0 + .42));
   // 거리 진행 바 0 → 2000m
   const mx = 72, my = 660, mww = W - 144;
-  const du = E.ioC(P(t, t0 + .1, bt(5)));
+  const du = E.ioC(P(t, t0 + .1, bt(7)));
   const m = Math.round(2000 * du);
   ctx.save(); rrect(mx, my - 7, mww, 14, 7); ctx.fillStyle = C.bg3; ctx.fill();
   rrect(mx, my - 7, Math.max(14, mww * du), 14, 7); ctx.fillStyle = C.lime; ctx.fill(); ctx.restore();
@@ -456,7 +433,7 @@ function sReps(t) {
     txt(`${q * 500}m`, x, my + 50, { size: 20, fam: MONO, weight: 700, color: on ? C.white : C.mute, align: q === 0 ? 'left' : q === 4 ? 'right' : 'center', alpha: on ? .85 : .5 });
   }
   circle(mx + mww * du, my, 13, { fill: C.white }); circle(mx + mww * du, my, 6, { fill: C.lime });
-  const done = E.outB(P(t, bt(5), bt(5) + .25));
+  const done = E.outB(P(t, bt(7), bt(7) + .25));
   if (done > 0) pill(W - 72, my - 46, '2000m 완주', { size: 26, fill: C.lime, align: 'right', scale: done });
   else txt(`${m}m`, W - 72, my - 30, { size: 34, fam: NUM, weight: 400, color: C.lime, align: 'right' });
   // 목표 범위 게이지
@@ -483,7 +460,7 @@ function sReps(t) {
   const gyy = 1035, ghh = 150;
   ctx.save(); ctx.globalAlpha = P(t, bt(2), bt(2) + .2);
   txt('2000m 동안의 심박 변화', 72, gyy - 10, { size: 22, weight: 800, alpha: .7 });
-  const head = hrGraph(72, gyy, W - 144, ghh, REPWIN[k][0], REPWIN[k][1], E.ioC(P(t, bt(2), bt(5) + .1)), { lo: 110, hi: 186, band: .12, zoneLabels: true, lw: 5, glow: true });
+  const head = hrGraph(72, gyy, W - 144, ghh, REPWIN[k][0], REPWIN[k][1], E.ioC(P(t, bt(2), bt(7) + .1)), { lo: 110, hi: 186, band: .12, zoneLabels: true, lw: 5, glow: true });
   if (head) { circle(head[0], head[1], 8, { fill: ZC[zoneOf(head[2][2])] }); txt(`${Math.round(head[2][2])}`, Math.min(head[0] + 14, W - 120), head[1] - 12, { size: 26, fam: NUM, weight: 400 }); }
   ctx.restore();
   // 세트 페이스 칩
@@ -494,46 +471,45 @@ function sReps(t) {
     txt(i <= k ? fmtPace(REPS[i].pace) : `${i + 1}세트`, x + 86, 1241, { size: i <= k ? 32 : 22, fam: i <= k ? NUM : KR, weight: i <= k ? 400 : 700, color: on ? C.bg : C.white, align: 'center' });
     ctx.restore();
   }
-  const ou = E.inC(P(t, bt(6) - .12, bt(6)));
+  const ou = E.inC(P(t, bt(8) - .12, bt(8)));
   if (ou > 0 && k < 4) { ctx.save(); ctx.globalAlpha = .9; ctx.fillStyle = C.lime; ctx.fillRect(0, H * (1 - ou), W, 14); ctx.restore(); }
 }
 
-// S4-A: 전체 심박 변화 추이 (b48~b56)
-function sChart(t) {
-  const t0 = b(20);
+// 분석 ①: 세션 전체 심박 변화 추이 (1마디, base 비트부터)
+function sChart(t, base) {
+  const t0 = b(base), bt = i => b(base + i);
   bgFill(C.bg, .06 + .08 * pulse(t, 7));
-  sectionLabel('심박 변화 추이', '03', t0, t);
+  sectionLabel('심박 변화 추이', '04', t0, t);
   maskText('세션 전체', 72, 300, { size: 76, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
-  maskText('심박 그래프', 72, 394, { size: 76, weight: 900, color: C.coral }, 1 - E.outX(P(t, b(21), b(21) + .3)));
+  maskText('심박 그래프', 72, 394, { size: 76, weight: 900, color: C.coral }, 1 - E.outX(P(t, t0 + .15, t0 + .45)));
   const gx = 72, gy = 480, gw = W - 144, gh = 600, T = 3593;
   const X = s => gx + gw * s / T;
   REPWIN.concat([FINALWIN]).forEach(([a, c], i) => {
-    const u = E.outX(P(t, b(22 + i), b(22 + i) + .3)); if (u <= 0) return;
+    const u = E.outX(P(t, t0 + .2 + i * .25, t0 + .5 + i * .25)); if (u <= 0) return;
     ctx.save(); ctx.globalAlpha = .1 * u; ctx.fillStyle = C.white; ctx.fillRect(X(a), gy, X(c) - X(a), gh); ctx.restore();
     txt(i < 5 ? `${i + 1}세트` : '라스트', (X(a) + X(c)) / 2, gy + gh + 40, { size: 22, weight: 800, color: C.white, align: 'center', alpha: u * .8 });
   });
-  const head = hrGraph(gx, gy, gw, gh, 0, T, E.ioC(P(t, b(21), b(27))), { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
+  const head = hrGraph(gx, gy, gw, gh, 0, T, E.ioC(P(t, t0 + .1, bt(3))), { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
   if (head) {
     line(head[0], gy, head[0], gy + gh, 1, { color: C.white, w: 1.5, alpha: .4 });
     circle(head[0], head[1], 9, { fill: ZC[zoneOf(head[2][2])] });
     txt(`${Math.round(head[2][2])} bpm`, Math.min(head[0] + 14, gx + gw - 150), head[1] - 16, { size: 28, fam: NUM, weight: 400 });
   }
-  const lu = P(t, b(25), b(25) + .3);
-  maskText('세트마다 최대 심박 160 → 164 → 168 → 172 → 177', 72, 1200, { size: 30, weight: 800, color: C.white }, 1 - lu);
-  maskText('회복 조깅에서 매번 130대로 내려왔다', 72, 1244, { size: 26, weight: 700, color: C.white, alpha: .6 }, 1 - E.outX(P(t, b(26), b(26) + .3)));
+  maskText('세트마다 최대 심박 160 → 164 → 168 → 172 → 177', 72, 1200, { size: 30, weight: 800, color: C.white }, 1 - E.outX(P(t, bt(2), bt(2) + .3)));
+  maskText('회복 조깅에서 매번 130대로 내려왔다', 72, 1244, { size: 26, weight: 700, color: C.white, alpha: .6 }, 1 - E.outX(P(t, bt(3), bt(3) + .3)));
 }
 
 // S4-B: 라스트 스퍼트
 function sFinal(t) {
-  const t0 = b(58);
+  const t0 = b(56);
   const z = E.inX(P(t, b(63) - .05, b(64)));
   bgFill(C.bg, .2 + .2 * pulse(t, 6), 540, 640);
   speedLines(t, 1, 80);
   ctx.save(); ctx.translate(540, 640); ctx.scale(1 + z * 3, 1 + z * 3); ctx.translate(-540, -640);
-  sectionLabel('마지막 스텝', '04', t0, t);
+  sectionLabel('마지막 스텝', '02', t0, t);
   maskText('라스트', 72, 330, { size: 110, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
-  maskText('스퍼트', 72, 460, { size: 110, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(58) + .22, b(58) + .5)));
-  const su = E.outX(P(t, b(59), b(59) + .3));
+  maskText('스퍼트', 72, 460, { size: 110, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(57), b(57) + .3)));
+  const su = E.outX(P(t, b(58), b(58) + .3));
   if (su > 0) {
     const sc = lerp(1.5, 1, su); const s = fmtPace(FINAL.pace);
     for (let e = 3; e >= 0; e--) {
@@ -553,10 +529,10 @@ function sRecovery(t) {
   const t0 = b(64);
   bgFill(C.deep, .12, 540, 980, '92,200,255');
   const br = (Math.sin((t - t0) * Math.PI * 2 / 3.9 - Math.PI / 2) + 1) / 2;
-  for (let i = 0; i < 4; i++) circle(540, 980, 170 + i * 70 + br * 50, { stroke: C.sky, w: 2, alpha: (.4 - i * .09) * P(t, t0, t0 + .6) });
-  circle(540, 980, 120 + br * 30, { fill: 'rgba(92,200,255,.12)' });
-  txt('숨 고르기', 540, 990, { size: 34, weight: 800, color: C.sky, align: 'center', alpha: P(t, t0 + .2, t0 + .8) });
-  sectionLabel('회복 조깅', '05', t0, t, C.sky);
+  for (let i = 0; i < 3; i++) circle(540, 1150, 80 + i * 40 + br * 24, { stroke: C.sky, w: 2, alpha: (.4 - i * .1) * P(t, t0, t0 + .6) });
+  circle(540, 1150, 62 + br * 16, { fill: 'rgba(92,200,255,.12)' });
+  txt('숨 고르기', 540, 1158, { size: 24, weight: 800, color: C.sky, align: 'center', alpha: P(t, t0 + .2, t0 + .8) });
+  sectionLabel('회복 조깅', '03', t0, t, C.sky);
   maskText('쉬는 구간까지', 72, 320, { size: 84, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .45)));
   maskText('계획대로.', 72, 424, { size: 84, weight: 900, color: C.sky }, 1 - E.outX(P(t, b(65), b(65) + .45)));
   RECS.forEach((p, i) => {
@@ -568,19 +544,29 @@ function sRecovery(t) {
     txt(`회복 ${i + 1}`, x + 86, y + 84, { size: 20, weight: 700, color: C.sky, align: 'center' });
     ctx.restore();
   });
-  maskText(`평균 ${fmtPace(372.4)} · 평균 심박 138 bpm`, 72, 720, { size: 36, weight: 800, color: C.white, alpha: .85 }, 1 - E.outX(P(t, b(71), b(71) + .4)));
+  // 회복 구간 평균값
+  const avg = [[String(RECAVG.dist), 'm', '평균 회복 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박']];
+  avg.forEach(([v, u, l], i) => {
+    const ui = E.outX(P(t, b(70) + i * .12, b(70) + .4 + i * .12)); const x = 72 + i * 320, y = 850;
+    maskText(v, x - 2, y, { size: 110, fam: NUM, weight: 400, color: i === 0 ? C.sky : C.white }, 1 - ui);
+    if (u) maskText(u, x + measure(v, 110, 400, NUM) + 6, y, { size: 30, weight: 900, color: C.sky }, 1 - ui);
+    maskText(l, x, y + 44, { size: 24, weight: 700, alpha: .6 }, 1 - ui);
+  });
+  maskText(`회복 조깅 ${RECS.length}회 평균`, 72, 730, { size: 28, weight: 800, color: C.sky }, 1 - E.outX(P(t, b(70), b(70) + .3)));
   const ou = P(t, b(72) - .2, b(72)); if (ou > 0) { ctx.fillStyle = `rgba(11,13,16,${ou})`; ctx.fillRect(0, 0, W, H); }
 }
 
 // S6: 분석 (마디 18~23): 존 분석 2마디 · 다이내믹스 · 심박 회복 · 5/5 · 훈련 효과
 const ZNAME = ['워밍업', '쉬움', '유산소', '역치', '최대'];
 function sAnalysis(t) {
-  const k = clamp(Math.floor((lastBeat(t) - 72) / 4), 0, 5);
-  const t0 = b(72 + k * 4), bt = i => b(72 + k * 4 + i);
+  const kk = clamp(Math.floor((lastBeat(t) - 72) / 4), 0, 5);
+  if (kk === 0) return sChart(t, 72);
+  const k = [0, 0, 1, 3, 4, 2][kk];
+  const t0 = b(72 + kk * 4), bt = i => b(72 + kk * 4 + i);
   bgFill(C.bg, .1 + .12 * pulse(t, 7), 540, 760);
   const enter = 1 - E.outX(P(t, t0, t0 + .3));
   const labels = ['심박존 분석', '세트별 심박존', '러닝 다이내믹스', '심박 회복', '결과', '훈련 효과'];
-  sectionLabel(labels[k], `0${6 + k}`.slice(-2), t0, t);
+  sectionLabel(labels[k], pad2(4 + kk), t0, t);
   if (k === 0) {
     maskText('본훈련', 72, 300, { size: 64, weight: 900, color: C.white }, enter);
     maskText('심박존 분석', 72, 384, { size: 76, weight: 900, color: ZC[3] }, 1 - E.outX(P(t, t0 + .1, t0 + .4)));
@@ -623,15 +609,21 @@ function sAnalysis(t) {
     maskText('러닝 다이내믹스', 72, 340, { size: 76, weight: 900, color: C.white }, enter);
     const rows = [['186', 'spm', '케이던스', 150], ['1.21', 'm', '보폭', 0], ['218', 'ms', '지면 접촉 시간', 150]];
     rows.forEach(([v, u_, l, from], i) => {
-      const u = E.outX(P(t, b(80 + i), b(80 + i) + .3)); const y = 590 + i * 230;
-      const cnt = E.outQ(P(t, b(80 + i), b(80 + i) + .6));
+      const u = E.outX(P(t, t0 + i * .25, t0 + i * .25 + .3)); const y = 560 + i * 210;
+      const cnt = E.outQ(P(t, t0 + i * .25, t0 + i * .25 + .6));
       const vv = v.includes('.') ? (parseFloat(v) * cnt).toFixed(2) : String(Math.round(lerp(from, parseFloat(v), cnt)));
       maskText(vv, 66, y, { size: 200, fam: NUM, weight: 400 }, 1 - u);
       maskText(u_, 72 + measure(vv, 200, 400, NUM) + 12, y, { size: 52, weight: 900, color: C.lime }, 1 - u);
       maskText(l, 640, y - 20, { size: 34, weight: 800, alpha: .7 }, 1 - u);
     });
+    const te = E.outX(P(t, bt(2), bt(2) + .3));
+    maskText('훈련 효과', 72, 1190, { size: 30, weight: 800, alpha: .7 }, 1 - te);
+    maskText('유산소 4.3', 230, 1190, { size: 30, weight: 900, color: C.lime }, 1 - te);
+    maskText('무산소 1.2', 400, 1190, { size: 30, weight: 900, color: C.sky }, 1 - te);
+    const ou2 = E.inC(P(t, b(96) - .25, b(96)));
+    if (ou2 > 0) { ctx.fillStyle = C.lime; ctx.fillRect(0, 0, W * ou2, H); }
     const steps = Math.floor((t - t0) * 3.1);
-    for (let i = 0; i < 6; i++) { const sIdx = steps - i; if (sIdx < 0) continue; const x = 960 - i * 60, y = 1220 + (sIdx % 2 ? -18 : 18);
+    for (let i = 0; i < 6; i++) { const sIdx = steps - i; if (sIdx < 0) continue; const x = 980 - i * 60, y = 1180 + (sIdx % 2 ? -18 : 18);
       ctx.save(); ctx.globalAlpha = (1 - i / 6) * .9; ctx.fillStyle = i === 0 ? C.lime : C.white; ctx.beginPath(); ctx.ellipse(x, y, 20, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
   } else if (k === 3) {
     maskText('세트 후 1분', 72, 300, { size: 64, weight: 900, color: C.white }, enter);
@@ -686,7 +678,7 @@ function sOutro(t) {
     bgFill(C.bg, .1, 540, 900);
     const wl = 1 - E.outX(P(t, t0, t0 + .35)); if (wl > 0) { ctx.fillStyle = C.lime; ctx.fillRect(W * (1 - wl), 0, W * wl, H); }
     track({ x: 540, y: 1120, s: 4.6, tilt: .5 }, { fill: C.track, infield: C.bg, runner: lerp(0, 400, E.ioC(P(t, t0, endT))), trail: 160, alpha: .45 });
-    sectionLabel('정리', '12', t0, t);
+    sectionLabel('정리', '10', t0, t);
     maskText('이 훈련은', 72, 320, { size: 96, weight: 900, color: C.white }, 1 - E.outX(P(t, b(97), b(97) + .35)));
     const pts = [
       ['목적', '젖산역치(LT) 향상과', '레이스 페이스 지속력 강화'],
@@ -721,7 +713,7 @@ function titleBadge(t, col, dark) {
   txt('롱 인터벌', x, y - 4, { size: 24, weight: 800, color: dark ? C.bg : C.lime });
   ctx.restore();
 }
-const SECS = [[0, '인트로'], [7.454, '세션 요약'], [9.427, '본훈련'], [11.378, '심박 추이'], [15.279, '세트'], [29.954, '스퍼트'], [32.879, '회복'], [36.78, '분석'], [48.484, '정리']];
+const SECS = [[0, '훈련 소개'], [5.503, '요약'], [9.427, '본훈련 세트'], [28.979, '스퍼트'], [32.879, '회복'], [36.78, '분석'], [48.484, '정리']];
 function hud(t, dark = false) {
   if (t < .25 || t >= b(105)) return;
   const a = P(t, .25, .6);
@@ -745,10 +737,10 @@ function draw(t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.lineJoin = 'round';
   if (t < 0.1) { drawCover(0); return; }
   // 비트 킥: 화면 미세 펀치
-  const pk = t > b(28) && t < b(96) ? pulse(t, 12) * .012 : t > b(0) && t < b(28) ? pulse(t, 12) * .006 : 0;
+  const pk = t > b(16) && t < b(96) ? pulse(t, 12) * .012 : t > b(0) && t < b(16) ? pulse(t, 12) * .006 : 0;
   ctx.save(); ctx.translate(540, 675); ctx.scale(1 + pk, 1 + pk); ctx.translate(-540, -675);
   let dark = false;
-  if (t < b(12)) {
+  if (t < b(8)) {
     sIntro(t);
     if (t < .45) { // 커버에서 인트로로: 커버가 줄어들며 슬랫으로 걷힘
       const u = P(t, .1, .45);
@@ -757,10 +749,8 @@ function draw(t) {
       ctx.clip(); ctx.translate(540, 675); ctx.scale(1 - u * .06, 1 - u * .06); ctx.translate(-540, -675); drawCover(t); ctx.restore();
     }
   }
-  else if (t < b(16)) sSummary(t);
-  else if (t < b(20)) sMain(t);
-  else if (t < b(28)) sChart(t);
-  else if (t < b(58)) sReps(t);
+  else if (t < b(16)) { sSummary(t); if (t < b(8) + .6) titleGroup(t, E.ioQ(P(t, b(8), b(8) + .5))); }
+  else if (t < b(56)) sReps(t);
   else if (t < b(64)) sFinal(t);
   else if (t < b(72)) sRecovery(t);
   else if (t < b(96)) { sAnalysis(t); const k = Math.floor((lastBeat(t) - 72) / 4); dark = (k === 4 && t < b(88) + .2); }
