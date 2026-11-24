@@ -396,22 +396,27 @@ function sSummary(t) {
     if (u) maskText(u, x + measure(v, 62, 400, NUM) + 6, y, { size: 22, weight: 900, color: i === 3 ? C.coral : C.lime }, 1 - ui);
   });
   line(cx + 40, cy + 310, cx + cw - 40, cy + 310, 1, { color: C.white, w: 1.5, alpha: .12 });
-  // 본훈련 (크게)
-  txt('본훈련', cx + 44, cy + 384, { size: 40, weight: 900, color: C.lime });
-  txt('2000m × 5 + 마지막 스텝', cx + 44 + measure('본훈련', 40, 900) + 18, cy + 382, { size: 26, weight: 700, alpha: .65 });
-  const mn = [['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']];
-  mn.forEach(([v, u, l], i) => {
-    const ui = E.outX(P(t, b(10) + i * .08, b(10) + .32 + i * .08));
-    const x = cx + 44 + (i % 2) * (cw / 2), y = cy + 520 + Math.floor(i / 2) * 160;
-    maskText(v, x - 2, y, { size: 112, fam: NUM, weight: 400 }, 1 - ui);
-    if (u) maskText(u, x + measure(v, 112, 400, NUM) + 8, y, { size: 30, weight: 900, color: i === 3 ? C.coral : C.lime }, 1 - ui);
-    maskText(l, x, y + 40, { size: 24, weight: 700, alpha: .55 }, 1 - ui);
+  // 본훈련 (한 줄 4개)
+  txt('본훈련', cx + 44, cy + 376, { size: 38, weight: 900, color: C.lime });
+  txt('2000m × 5 + 마지막 스텝', cx + 44 + measure('본훈련', 38, 900) + 18, cy + 374, { size: 24, weight: 700, alpha: .65 });
+  const row4 = (items, y, t1, opt = {}) => items.forEach(([v, u, l], i) => {
+    const ui = E.outX(P(t, t1 + i * .07, t1 + .3 + i * .07)), x = cx + 44 + i * 222;
+    maskText(v, x - 2, y, { size: 72, fam: NUM, weight: 400, color: opt.first && i === 0 ? opt.first : C.white }, 1 - ui);
+    if (u) maskText(u, x + measure(v, 72, 400, NUM) + 6, y, { size: 24, weight: 900, color: opt.uc ? opt.uc(i) : C.lime }, 1 - ui);
+    maskText(l, x, y + 36, { size: 22, weight: 700, alpha: .55 }, 1 - ui);
   });
+  row4([['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']], cy + 476, b(10), { uc: i => i === 3 ? C.coral : C.lime });
   // 본훈련 심박존
-  const zu = E.ioC(P(t, b(12), b(13)));
-  txt('본훈련 심박존', cx + 44, cy + 830, { size: 26, weight: 800, alpha: .7 * P(t, b(12), b(12) + .2) });
-  zoneBar(cx + 44, cy + 852, cw - 88, 34, MAINZ, zu, { labels: true, la: P(t, b(13) - .1, b(13) + .2) });
-  maskText(`Z4 역치 구간에서 ${fmtDur(MAINZ[3])} (64%)`, cx + 44, cy + 966, { size: 30, weight: 800, color: ZC[3] }, 1 - E.outX(P(t, b(13) + .2, b(13) + .5)));
+  const zu = E.ioC(P(t, b(11), b(12)));
+  txt('본훈련 심박존', cx + 44, cy + 566, { size: 22, weight: 800, alpha: .7 * P(t, b(11), b(11) + .2) });
+  zoneBar(cx + 44, cy + 584, cw - 88, 30, MAINZ, zu, { labels: true, la: P(t, b(12) - .1, b(12) + .2) });
+  maskText(`Z4 역치 구간에서 ${fmtDur(MAINZ[3])} (64%)`, cx + 44, cy + 692, { size: 26, weight: 800, color: ZC[3] }, 1 - E.outX(P(t, b(12) + .1, b(12) + .4)));
+  line(cx + 40, cy + 730, cx + cw - 40, cy + 730, 1, { color: C.white, w: 1.5, alpha: .12 });
+  // 회복구간
+  const ru = P(t, b(13), b(13) + .2);
+  txt('회복구간', cx + 44, cy + 800, { size: 38, weight: 900, color: C.sky, alpha: ru });
+  txt(`랩 버튼까지 조깅 · 목표 ${fmtPace(300)}~${fmtPace(390)}`, cx + 44 + measure('회복구간', 38, 900) + 18, cy + 798, { size: 24, weight: 700, alpha: .65 * ru });
+  row4([[String(RECAVG.dist), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']], cy + 900, b(13) + .1, { first: C.sky, uc: () => C.sky });
   ctx.restore();
   sectionLabel('세션 요약', '01', t0, t);
   const ou = E.inC(P(t, b(16) - .14, b(16)));
