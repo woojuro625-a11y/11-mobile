@@ -187,12 +187,19 @@ const FEED_CARDS = [
     cardFrame(2, '세션 요약', '2026.11.04 수요일 · 기온 18°C');
     // 줄 구성: 거리·시간 / 페이스·칼로리 / 평균 심박·최대 심박
     const cells = [['13.12', 'km', '총 거리'], ['57:05', '', '운동 시간'], [fmtPace(261.1), '', '평균 페이스'], ['809', 'kcal', '소모 칼로리'], ['154', 'bpm', '평균 심박'], ['177', 'bpm', '최대 심박']];
-    cells.forEach(([v, u, l], i) => stat(72 + (i % 2) * 480, 440 + Math.floor(i / 2) * 170, v, u, l, { size: 110, uc: u === 'bpm' ? C.coral : C.lime }));
-    panel(72, 880, W - 144, 310);
-    txt('본훈련', 112, 950, { size: 40, weight: 900, color: C.lime });
-    txt('2000m × 5 + 마지막 스텝', 112 + measure('본훈련', 40, 900) + 18, 948, { size: 26, weight: 700, alpha: .65 });
+    cells.forEach(([v, u, l], i) => stat(72 + (i % 2) * 480, 420 + Math.floor(i / 2) * 140, v, u, l, { size: 92, uc: u === 'bpm' ? C.coral : C.lime }));
+    // 본훈련 패널
+    panel(72, 770, W - 144, 210);
+    txt('본훈련', 112, 832, { size: 36, weight: 900, color: C.lime });
+    txt('2000m × 5 + 마지막 스텝', 112 + measure('본훈련', 36, 900) + 18, 830, { size: 24, weight: 700, alpha: .65 });
     [['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']].forEach(([v, u, l], i) =>
-      stat(112 + i * 228, 1080, v, u, l, { size: 70, ls: 22, uc: i === 3 ? C.coral : C.lime }));
+      stat(112 + i * 228, 922, v, u, l, { size: 66, ls: 22, uc: i === 3 ? C.coral : C.lime }));
+    // 회복구간 패널
+    panel(72, 996, W - 144, 210, 'rgba(8,21,33,.95)');
+    txt('회복구간', 112, 1058, { size: 36, weight: 900, color: C.sky });
+    txt(`랩 버튼까지 조깅 · 목표 ${fmtPace(300)}~${fmtPace(390)}`, 112 + measure('회복구간', 36, 900) + 18, 1056, { size: 24, weight: 700, alpha: .65 });
+    [[String(RECAVG.dist), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']].forEach(([v, u, l], i) =>
+      stat(112 + i * 228, 1148, v, u, l, { size: 66, ls: 22, color: i === 0 ? C.sky : C.white, uc: C.sky }));
   }],
   // 3. 세트별 기록
   ['03-sets', () => {
