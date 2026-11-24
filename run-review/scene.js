@@ -340,13 +340,14 @@ function sIntro(t) {
   }
   if (t >= b(4) && t < b(8) + .6) {
     const up = E.ioQ(P(t, b(8), b(8) + .5));
-    ctx.save(); ctx.translate(72, lerp(0, -230, up)); ctx.scale(lerp(1, .62, up), lerp(1, .62, up)); ctx.translate(-72, 0);
+    const sc = lerp(1, .135, up);
+    ctx.save(); ctx.globalAlpha = 1 - P(up, .7, 1); ctx.translate(72, lerp(600, 108, up)); ctx.scale(sc, sc); ctx.translate(-72, -600);
     const s1 = lerp(1.7, 1, E.outX(P(t, b(4), b(4) + .25)));
-    ctx.save(); ctx.translate(72, 600); ctx.scale(s1, s1); ctx.globalAlpha = P(t, b(4), b(4) + .05);
+    ctx.save(); ctx.translate(72, 600); ctx.scale(s1, s1); ctx.globalAlpha *= P(t, b(4), b(4) + .05);
     txt('2KM', -4, 0, { size: 300, fam: NUM, weight: 400 }); ctx.restore();
     const w = measure('2KM', 300, 400, NUM);
     const s2 = lerp(1.7, 1, E.outX(P(t, b(5), b(5) + .25)));
-    ctx.save(); ctx.translate(72 + w + 20, 600); ctx.scale(s2, s2); ctx.globalAlpha = P(t, b(5), b(5) + .05);
+    ctx.save(); ctx.translate(72 + w + 20, 600); ctx.scale(s2, s2); ctx.globalAlpha *= P(t, b(5), b(5) + .05);
     txt('×5', 0, 0, { size: 300, fam: NUM, weight: 400, color: C.lime }); ctx.restore();
     maskText('+1KM', 70, 790, { size: 180, fam: NUM, weight: 400, color: C.white }, 1 - E.outX(P(t, b(6), b(6) + .3)));
     maskText('롱 인터벌', 72 + measure('+1KM', 180, 400, NUM) + 30, 770, { size: 62, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(7), b(7) + .3)));
@@ -371,7 +372,7 @@ function sSummary(t) {
   bgFill(C.bg, .06 + .06 * pulse(t, 7));
   track({ x: 540, y: 1030, s: 5.6, tilt: .62 }, { fill: C.track, infield: C.bg, runner: (t - b(9)) * 260, trail: 120, alpha: .35 });
   const cu = E.outX(P(t, t0, t0 + .35));
-  const cx = 72, cy = 260, cw = W - 144, ch = 760;
+  const cx = 72, cy = 240, cw = W - 144, ch = 820;
   ctx.save(); ctx.translate(0, (1 - cu) * 120); ctx.globalAlpha = cu;
   rrect(cx, cy, cw, ch, 36); ctx.fillStyle = 'rgba(26,31,38,.92)'; ctx.fill(); ctx.strokeStyle = 'rgba(243,242,236,.12)'; ctx.lineWidth = 2; ctx.stroke();
   ctx.restore();
@@ -393,127 +394,146 @@ function sSummary(t) {
     ctx.restore();
   }
   // 다음 장면으로 와이프
-  const ou = E.inC(P(t, b(20) - .14, b(20)));
+  const ou = E.inC(P(t, b(16) - .14, b(16)));
   if (ou > 0) { ctx.fillStyle = C.lime; ctx.fillRect(0, H * (1 - ou), W, H * ou); }
 }
 
 // S2b: 본훈련 개요 b20~b28
 function sMain(t) {
-  const t0 = b(20);
+  const t0 = b(16);
   bgFill(C.bg, .1 + .12 * pulse(t, 7), 540, 700);
   const wl = 1 - E.outX(P(t, t0, t0 + .3)); if (wl > 0) { ctx.fillStyle = C.lime; ctx.fillRect(0, 0, W, H * wl); }
   sectionLabel('본훈련', '02', t0, t);
   maskText('본훈련', 72, 340, { size: 120, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
-  maskText('2km × 5 + 마지막 스텝', 72, 420, { size: 44, weight: 800, color: C.lime }, 1 - E.outX(P(t, t0 + .1, t0 + .4)));
+  maskText('2000m × 5 + 마지막 스텝', 72, 420, { size: 44, weight: 800, color: C.lime }, 1 - E.outX(P(t, t0 + .1, t0 + .4)));
   const items = [['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']];
   items.forEach(([v, u, l], i) => {
-    const ui = E.outX(P(t, b(21) + i * .1, b(21) + i * .1 + .3));
+    const ui = E.outX(P(t, b(16) + .15 + i * .08, b(16) + .45 + i * .08));
     const x = 72 + (i % 2) * 480, y = 600 + Math.floor(i / 2) * 170;
     maskText(v, x - 2, y, { size: 120, fam: NUM, weight: 400 }, 1 - ui);
     if (u) maskText(u, x + measure(v, 120, 400, NUM) + 8, y, { size: 32, weight: 900, color: i === 3 ? C.coral : C.lime }, 1 - ui);
     maskText(l, x, y + 42, { size: 26, weight: 700, alpha: .55 }, 1 - ui);
   });
   // 심박존 분포
-  const zu = E.ioC(P(t, b(22), b(23)));
-  maskText('본훈련 심박존 분포', 72, 1000, { size: 32, weight: 800 }, 1 - E.outX(P(t, b(22), b(22) + .3)));
-  zoneBar(72, 1030, W - 144, 46, MAINZ, zu, { labels: true, la: P(t, b(23) - .2, b(23) + .1) });
-  maskText(`Z4 역치 구간에서 ${fmtDur(MAINZ[3])} (64%)`, 72, 1175, { size: 34, weight: 800, color: ZC[3] }, 1 - E.outX(P(t, b(23), b(23) + .3)));
+  const zu = E.ioC(P(t, b(17), b(18)));
+  maskText('본훈련 심박존 분포', 72, 1000, { size: 32, weight: 800 }, 1 - E.outX(P(t, b(17), b(17) + .3)));
+  zoneBar(72, 1030, W - 144, 46, MAINZ, zu, { labels: true, la: P(t, b(18) - .2, b(18) + .1) });
+  maskText(`Z4 역치 구간에서 ${fmtDur(MAINZ[3])} (64%)`, 72, 1175, { size: 34, weight: 800, color: ZC[3] }, 1 - E.outX(P(t, b(18) + .3, b(18) + .6)));
 }
 
 // S3: 5세트 — 페이스 · 거리 · 심박존 · 심박 추이
 function sReps(t) {
-  const k = clamp(Math.floor((lastBeat(t) - 28) / 4), 0, 4);
-  const t0 = b(28 + k * 4), bt = i => b(28 + k * 4 + i);
+  const k = clamp(Math.floor((lastBeat(t) - 28) / 6), 0, 4);
+  const t0 = b(28 + k * 6), bt = i => b(28 + k * 6 + i);
   const r = REPS[k];
   bgFill(C.bg, .1 + .14 * pulse(t, 7), 540, 560);
   speedLines(t, .2 + k * .08, 24 + k * 6);
   if (k === 0) { const f = 1 - P(t, t0, t0 + .25); if (f > 0) { ctx.fillStyle = `rgba(212,255,58,${f * .9})`; ctx.fillRect(0, 0, W, H); } }
   sectionLabel('본훈련 세트', `0${k + 1}`, t0, t);
-  txt('2.00', W - 72 - measure('km', 30, 900) - 8, 182, { size: 56, fam: NUM, weight: 400, color: C.white, align: 'right' });
-  txt('km', W - 72, 182, { size: 30, weight: 900, color: C.lime, align: 'right' });
+  // 세트 번호 + 2000m 강조
   const setU = P(t, t0, t0 + .3);
   ctx.save(); font(130, 400, NUM); ctx.lineWidth = 3; ctx.strokeStyle = C.white; ctx.globalAlpha = 1 - (1 - setU) * .8;
   ctx.strokeText(String(k + 1), 66 + (1 - E.outX(setU)) * 60, 330); ctx.restore();
   txt('세트', 72 + measure(String(k + 1), 130, 400, NUM) + 14, 326, { size: 44, weight: 900, color: C.white, alpha: setU });
-  if (k > 0) { const dd = Math.round(REPS[k - 1].pace) - Math.round(r.pace); pill(W - 72, 290, `▼ ${dd}초 단축`, { size: 28, fill: C.lime, align: 'right', scale: E.outB(P(t, bt(1), bt(1) + .25)) }); }
+  const ds = lerp(1.6, 1, E.outX(P(t, t0 + .05, t0 + .35)));
+  ctx.save(); ctx.translate(W - 72, 330); ctx.scale(ds, ds); ctx.globalAlpha = P(t, t0 + .05, t0 + .12);
+  const mw = measure('m', 50, 900);
+  txt('m', 0, 0, { size: 50, weight: 900, color: C.lime, align: 'right' });
+  txt('2000', -mw - 8, 0, { size: 130, fam: NUM, weight: 400, color: C.lime, align: 'right' });
+  ctx.restore();
+  if (k > 0) { const dd = Math.round(REPS[k - 1].pace) - Math.round(r.pace); pill(W - 72, 390, `▼ ${dd}초 단축`, { size: 26, fill: C.white, align: 'right', scale: E.outB(P(t, bt(1), bt(1) + .25)) }); }
   const prev = k === 0 ? `0'00"` : fmtPace(REPS[k - 1].pace);
-  rollText(prev, fmtPace(r.pace), 64, 600, { size: 290, fam: NUM, color: C.white }, P(t, t0 + .02, t0 + .42));
+  rollText(prev, fmtPace(r.pace), 64, 590, { size: 260, fam: NUM, color: C.white }, P(t, t0 + .02, t0 + .42));
+  // 거리 진행 바 0 → 2000m
+  const mx = 72, my = 660, mww = W - 144;
+  const du = E.ioC(P(t, t0 + .1, bt(5)));
+  const m = Math.round(2000 * du);
+  ctx.save(); rrect(mx, my - 7, mww, 14, 7); ctx.fillStyle = C.bg3; ctx.fill();
+  rrect(mx, my - 7, Math.max(14, mww * du), 14, 7); ctx.fillStyle = C.lime; ctx.fill(); ctx.restore();
+  for (let q = 0; q <= 4; q++) {
+    const x = mx + mww * q / 4; const on = du >= q / 4 - .001;
+    line(x, my + 12, x, my + 24, 1, { color: C.white, w: 2, alpha: on ? .8 : .3 });
+    txt(`${q * 500}m`, x, my + 50, { size: 20, fam: MONO, weight: 700, color: on ? C.white : C.mute, align: q === 0 ? 'left' : q === 4 ? 'right' : 'center', alpha: on ? .85 : .5 });
+  }
+  circle(mx + mww * du, my, 13, { fill: C.white }); circle(mx + mww * du, my, 6, { fill: C.lime });
+  const done = E.outB(P(t, bt(5), bt(5) + .25));
+  if (done > 0) pill(W - 72, my - 46, '2000m 완주', { size: 26, fill: C.lime, align: 'right', scale: done });
+  else txt(`${m}m`, W - 72, my - 30, { size: 34, fam: NUM, weight: 400, color: C.lime, align: 'right' });
   // 목표 범위 게이지
-  const gx = 72, gy = 700, gw = W - 144, lo = 210, hi = 260;
+  const gx = 72, gy = 790, gw = W - 144, lo = 210, hi = 260;
   const X = p => gx + gw * (hi - p) / (hi - lo);
-  const gu = E.outX(P(t, bt(0), bt(1)));
+  const gu = E.outX(P(t, bt(1), bt(1) + .4));
   ctx.save(); ctx.globalAlpha = gu; rrect(gx, gy - 9, gw, 18, 9); ctx.fillStyle = C.bg3; ctx.fill();
   rrect(X(r.hi), gy - 9, X(r.lo) - X(r.hi), 18, 9); ctx.fillStyle = 'rgba(212,255,58,.35)'; ctx.fill(); ctx.restore();
-  for (let p = 215; p <= 255; p += 10) txt(fmtPace(p), X(p), gy + 44, { size: 20, fam: MONO, weight: 600, color: C.white, align: 'center', alpha: .4 * gu });
+  for (let p = 215; p <= 255; p += 10) txt(fmtPace(p), X(p), gy + 42, { size: 20, fam: MONO, weight: 600, color: C.white, align: 'center', alpha: .4 * gu });
   if (t > bt(1)) {
     const mk = X(lerp(lo + 45, r.pace, spring(t - bt(1), 2, 6)));
     circle(mk, gy, 17, { fill: C.lime }); circle(mk, gy, 26 + 26 * P(t, bt(1), bt(1) + .4), { stroke: C.lime, w: 3, alpha: 1 - P(t, bt(1), bt(1) + .4) });
-    maskText(`목표 ${fmtPace(r.lo)}–${fmtPace(r.hi)}`, gx, gy - 34, { size: 28, weight: 800, color: C.white, alpha: .8 }, 1 - E.outX(P(t, bt(1), bt(1) + .3)));
+    maskText(`목표 ${fmtPace(r.lo)}–${fmtPace(r.hi)}`, gx, gy - 32, { size: 28, weight: 800, color: C.white, alpha: .8 }, 1 - E.outX(P(t, bt(1), bt(1) + .3)));
     const cs = E.outB(P(t, bt(1) + .1, bt(1) + .35));
-    if (cs > 0) { circle(W - 90, gy - 44, 18 * cs, { fill: C.lime }); check(W - 90, gy - 44, 18 * cs, P(t, bt(1) + .15, bt(1) + .4)); txt('적중', W - 118, gy - 34, { size: 28, weight: 900, color: C.lime, align: 'right', alpha: cs }); }
+    if (cs > 0) { circle(W - 90, gy - 42, 18 * cs, { fill: C.lime }); check(W - 90, gy - 42, 18 * cs, P(t, bt(1) + .15, bt(1) + .4)); txt('적중', W - 118, gy - 32, { size: 28, weight: 900, color: C.lime, align: 'right', alpha: cs }); }
   }
-  // 심박 + 존 분포 (beat 1~2)
-  const hu = E.outX(P(t, bt(1), bt(1) + .3));
-  heart(92, 820, 38 * (1 + .25 * pulse(t, 8)), C.coral);
-  maskText(String(Math.round(r.hr)), 124, 838, { size: 62, fam: NUM, weight: 400 }, 1 - hu);
-  maskText(`bpm 평균 · 최대 ${REPMAX[k]}`, 124 + measure(String(Math.round(r.hr)), 62, 400, NUM) + 10, 834, { size: 26, weight: 800, color: C.coral }, 1 - hu);
-  zoneBar(72, 870, W - 144, 30, REPZ[k], E.ioC(P(t, bt(1), bt(2))), { labels: true, la: P(t, bt(2) - .1, bt(2) + .15) });
-  // 세트 심박 추이
-  const gyy = 1000, ghh = 180;
-  const gu2 = P(t, bt(1), bt(1) + .2);
-  ctx.save(); ctx.globalAlpha = gu2;
-  txt('심박 변화', 72, gyy - 8, { size: 24, weight: 800, alpha: .7 });
-  const head = hrGraph(72, gyy, W - 144, ghh, REPWIN[k][0], REPWIN[k][1], E.ioC(P(t, bt(1), bt(3) + .2)), { lo: 110, hi: 186, band: .12, zoneLabels: true, lw: 5, glow: true });
+  // 심박 + 존 분포
+  const hu = E.outX(P(t, bt(2), bt(2) + .3));
+  heart(92, 895, 38 * (1 + .25 * pulse(t, 8)), C.coral);
+  maskText(String(Math.round(r.hr)), 124, 913, { size: 60, fam: NUM, weight: 400 }, 1 - hu);
+  maskText(`bpm 평균 · 최대 ${REPMAX[k]}`, 124 + measure(String(Math.round(r.hr)), 60, 400, NUM) + 10, 909, { size: 26, weight: 800, color: C.coral }, 1 - hu);
+  zoneBar(72, 935, W - 144, 26, REPZ[k], E.ioC(P(t, bt(2), bt(3))), { labels: true, la: P(t, bt(3) - .1, bt(3) + .15) });
+  // 세트 심박 추이 (2000m 동안)
+  const gyy = 1035, ghh = 150;
+  ctx.save(); ctx.globalAlpha = P(t, bt(2), bt(2) + .2);
+  txt('2000m 동안의 심박 변화', 72, gyy - 10, { size: 22, weight: 800, alpha: .7 });
+  const head = hrGraph(72, gyy, W - 144, ghh, REPWIN[k][0], REPWIN[k][1], E.ioC(P(t, bt(2), bt(5) + .1)), { lo: 110, hi: 186, band: .12, zoneLabels: true, lw: 5, glow: true });
   if (head) { circle(head[0], head[1], 8, { fill: ZC[zoneOf(head[2][2])] }); txt(`${Math.round(head[2][2])}`, Math.min(head[0] + 14, W - 120), head[1] - 12, { size: 26, fam: NUM, weight: 400 }); }
   ctx.restore();
   // 세트 페이스 칩
   for (let i = 0; i < 5; i++) {
-    const x = 72 + i * 190, on = i === k, done = i < k;
-    ctx.save(); ctx.globalAlpha = on ? 1 : done ? .55 : .2; rrect(x, 1205, 172, 50, 25);
+    const x = 72 + i * 190, on = i === k, dn = i < k;
+    ctx.save(); ctx.globalAlpha = on ? 1 : dn ? .55 : .2; rrect(x, 1205, 172, 50, 25);
     if (on) { ctx.fillStyle = C.lime; ctx.fill(); } else { ctx.strokeStyle = C.white; ctx.lineWidth = 2; ctx.stroke(); }
     txt(i <= k ? fmtPace(REPS[i].pace) : `${i + 1}세트`, x + 86, 1241, { size: i <= k ? 32 : 22, fam: i <= k ? NUM : KR, weight: i <= k ? 400 : 700, color: on ? C.bg : C.white, align: 'center' });
     ctx.restore();
   }
-  const ou = E.inC(P(t, bt(4) - .12, bt(4)));
+  const ou = E.inC(P(t, bt(6) - .12, bt(6)));
   if (ou > 0 && k < 4) { ctx.save(); ctx.globalAlpha = .9; ctx.fillStyle = C.lime; ctx.fillRect(0, H * (1 - ou), W, 14); ctx.restore(); }
 }
 
 // S4-A: 전체 심박 변화 추이 (b48~b56)
 function sChart(t) {
-  const t0 = b(48);
+  const t0 = b(20);
   bgFill(C.bg, .06 + .08 * pulse(t, 7));
   sectionLabel('심박 변화 추이', '03', t0, t);
   maskText('세션 전체', 72, 300, { size: 76, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
-  maskText('심박 그래프', 72, 394, { size: 76, weight: 900, color: C.coral }, 1 - E.outX(P(t, b(49), b(49) + .3)));
+  maskText('심박 그래프', 72, 394, { size: 76, weight: 900, color: C.coral }, 1 - E.outX(P(t, b(21), b(21) + .3)));
   const gx = 72, gy = 480, gw = W - 144, gh = 600, T = 3593;
   const X = s => gx + gw * s / T;
   REPWIN.concat([FINALWIN]).forEach(([a, c], i) => {
-    const u = E.outX(P(t, b(50 + i), b(50 + i) + .3)); if (u <= 0) return;
+    const u = E.outX(P(t, b(22 + i), b(22 + i) + .3)); if (u <= 0) return;
     ctx.save(); ctx.globalAlpha = .1 * u; ctx.fillStyle = C.white; ctx.fillRect(X(a), gy, X(c) - X(a), gh); ctx.restore();
     txt(i < 5 ? `${i + 1}세트` : '라스트', (X(a) + X(c)) / 2, gy + gh + 40, { size: 22, weight: 800, color: C.white, align: 'center', alpha: u * .8 });
   });
-  const head = hrGraph(gx, gy, gw, gh, 0, T, E.ioC(P(t, b(49), b(55))), { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
+  const head = hrGraph(gx, gy, gw, gh, 0, T, E.ioC(P(t, b(21), b(27))), { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
   if (head) {
     line(head[0], gy, head[0], gy + gh, 1, { color: C.white, w: 1.5, alpha: .4 });
     circle(head[0], head[1], 9, { fill: ZC[zoneOf(head[2][2])] });
     txt(`${Math.round(head[2][2])} bpm`, Math.min(head[0] + 14, gx + gw - 150), head[1] - 16, { size: 28, fam: NUM, weight: 400 });
   }
-  const lu = P(t, b(53), b(53) + .3);
+  const lu = P(t, b(25), b(25) + .3);
   maskText('세트마다 최대 심박 160 → 164 → 168 → 172 → 177', 72, 1200, { size: 30, weight: 800, color: C.white }, 1 - lu);
-  maskText('회복 조깅에서 매번 130대로 내려왔다', 72, 1244, { size: 26, weight: 700, color: C.white, alpha: .6 }, 1 - E.outX(P(t, b(54), b(54) + .3)));
+  maskText('회복 조깅에서 매번 130대로 내려왔다', 72, 1244, { size: 26, weight: 700, color: C.white, alpha: .6 }, 1 - E.outX(P(t, b(26), b(26) + .3)));
 }
 
 // S4-B: 라스트 스퍼트
 function sFinal(t) {
-  const t0 = b(56);
+  const t0 = b(58);
   const z = E.inX(P(t, b(63) - .05, b(64)));
   bgFill(C.bg, .2 + .2 * pulse(t, 6), 540, 640);
   speedLines(t, 1, 80);
   ctx.save(); ctx.translate(540, 640); ctx.scale(1 + z * 3, 1 + z * 3); ctx.translate(-540, -640);
   sectionLabel('마지막 스텝', '04', t0, t);
   maskText('라스트', 72, 330, { size: 110, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
-  maskText('스퍼트', 72, 460, { size: 110, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(57), b(57) + .3)));
-  const su = E.outX(P(t, b(58), b(58) + .3));
+  maskText('스퍼트', 72, 460, { size: 110, weight: 900, color: C.lime }, 1 - E.outX(P(t, b(58) + .22, b(58) + .5)));
+  const su = E.outX(P(t, b(59), b(59) + .3));
   if (su > 0) {
     const sc = lerp(1.5, 1, su); const s = fmtPace(FINAL.pace);
     for (let e = 3; e >= 0; e--) {
@@ -670,7 +690,7 @@ function sOutro(t) {
     maskText('이 훈련은', 72, 320, { size: 96, weight: 900, color: C.white }, 1 - E.outX(P(t, b(97), b(97) + .35)));
     const pts = [
       ['목적', '젖산역치(LT) 향상과', '레이스 페이스 지속력 강화'],
-      ['방식', '2km × 5를 세트마다 3~6초씩 빠르게,', '사이사이 회복 조깅'],
+      ['방식', '2000m × 5를 세트마다 3~6초씩 빠르게,', '사이사이 회복 조깅'],
       ['결과', `${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)}, 마지막 ${fmtPace(FINAL.pace)}까지 가속`, '본훈련 64%를 역치(Z4)에서 소화'],
     ];
     pts.forEach(([h, l1, l2], i) => {
@@ -691,17 +711,26 @@ function sOutro(t) {
 }
 
 /* ---------------- 상시 HUD ---------------- */
-const SECS = [[0, '인트로'], [7.454, '세션 요약'], [11.378, '본훈련'], [15.279, '세트'], [25.054, '심박 추이'], [28.979, '스퍼트'], [32.879, '회복'], [36.78, '분석'], [48.484, '정리']];
+/* 훈련 이름: 인트로에서 줄어들어 이 자리로 이동한 뒤 끝까지 유지 */
+function titleBadge(t, col, dark) {
+  const a = P(t, b(8) + .3, b(8) + .5); if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; let x = 72; const y = 108;
+  txt('2KM', x, y, { size: 40, fam: NUM, weight: 400, color: col }); x += measure('2KM', 40, 400, NUM) + 4;
+  txt('×5', x, y, { size: 40, fam: NUM, weight: 400, color: dark ? C.bg : C.lime }); x += measure('×5', 40, 400, NUM) + 10;
+  txt('+1KM', x, y, { size: 40, fam: NUM, weight: 400, color: col }); x += measure('+1KM', 40, 400, NUM) + 14;
+  txt('롱 인터벌', x, y - 4, { size: 24, weight: 800, color: dark ? C.bg : C.lime });
+  ctx.restore();
+}
+const SECS = [[0, '인트로'], [7.454, '세션 요약'], [9.427, '본훈련'], [11.378, '심박 추이'], [15.279, '세트'], [29.954, '스퍼트'], [32.879, '회복'], [36.78, '분석'], [48.484, '정리']];
 function hud(t, dark = false) {
   if (t < .25 || t >= b(106)) return;
   const a = P(t, .25, .6);
   const col = dark ? C.bg : C.white;
   ctx.save(); ctx.globalAlpha = a;
-  txt('러닝 로그', 72, 92, { size: 22, weight: 800, color: col, alpha: .8 });
-  txt('2026.11.04', 72 + measure('러닝 로그', 22, 800) + 14, 92, { size: 22, fam: MONO, weight: 600, color: dark ? C.bg : C.lime });
+  titleBadge(t, col, dark);
   // 세션 진행 (영상 진행 → 세션 거리로 매핑)
   const km = (13.12 * clamp((t - .1) / (b(106) - .1))).toFixed(2);
-  txt(`${km} km`, W - 72, 92, { size: 22, fam: MONO, weight: 700, color: col, align: 'right', alpha: .8 });
+  txt(`${km} km`, W - 72, 104, { size: 22, fam: MONO, weight: 700, color: col, align: 'right', alpha: .8 });
   const bx = 72, by = H - 54, bw = W - 144;
   ctx.globalAlpha = a * .25; ctx.fillStyle = col; ctx.fillRect(bx, by, bw, 3);
   ctx.globalAlpha = a; ctx.fillStyle = dark ? C.bg : C.lime; ctx.fillRect(bx, by - 1, bw * clamp(t / b(106)), 5);
@@ -728,10 +757,10 @@ function draw(t) {
       ctx.clip(); ctx.translate(540, 675); ctx.scale(1 - u * .06, 1 - u * .06); ctx.translate(-540, -675); drawCover(t); ctx.restore();
     }
   }
-  else if (t < b(20)) sSummary(t);
-  else if (t < b(28)) sMain(t);
-  else if (t < b(48)) sReps(t);
-  else if (t < b(56)) sChart(t);
+  else if (t < b(16)) sSummary(t);
+  else if (t < b(20)) sMain(t);
+  else if (t < b(28)) sChart(t);
+  else if (t < b(58)) sReps(t);
   else if (t < b(64)) sFinal(t);
   else if (t < b(72)) sRecovery(t);
   else if (t < b(96)) { sAnalysis(t); const k = Math.floor((lastBeat(t) - 72) / 4); dark = (k === 4 && t < b(88) + .2); }
