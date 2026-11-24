@@ -198,20 +198,23 @@ const FEED_CARDS = [
       ctx.globalAlpha = .15 + rnd(i * 5.3) * .4; ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
     txt(`${TOTAL_SLIDES} / ${TOTAL_SLIDES}`, W - 72, 104, { size: 24, fam: MONO, weight: 700, align: 'right', alpha: .55 });
-    woojuroText(540, 560, 220);
-    txt('훈련 데이터를 재밌고, 정확하게', 540, 860, { size: 44, weight: 900, align: 'center' });
-    txt('분석해서 업로드합니다', 540, 920, { size: 44, weight: 900, align: 'center' });
-    // 유튜브 채널 홍보
-    const yw = 640, yx = 540 - yw / 2, yy = 990;
-    rrect(yx, yy, yw, 110, 28); ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 2; ctx.stroke();
-    rrect(yx + 34, yy + 28, 76, 54, 14); ctx.fillStyle = '#FF2D2D'; ctx.fill();
-    ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(yx + 64, yy + 41); ctx.lineTo(yx + 88, yy + 55); ctx.lineTo(yx + 64, yy + 69); ctx.closePath(); ctx.fill();
-    txt('유튜브 채널 운영 중', yx + 136, yy + 48, { size: 24, weight: 700, alpha: .65 });
-    txt('레이스 요약 영상도 올려요', yx + 136, yy + 86, { size: 32, weight: 900 });
-    // 팔로우 요청
-    const fw = measure('팔로우하고 다음 훈련도 같이 봐요', 34, 900) + 80;
-    rrect(540 - fw / 2, 1150, fw, 76, 38); ctx.fillStyle = '#FFC21A'; ctx.fill();
-    txt('팔로우하고 다음 훈련도 같이 봐요', 540, 1200, { size: 34, weight: 900, color: '#111', align: 'center' });
+    woojuroText(540, 600, 230);
+    // 유튜브 채널 표시 (아이콘 + 한 줄)
+    const yt = '유튜브 채널 운영 중', ytw = 76 + 18 + measure(yt, 34, 800), yx = 540 - ytw / 2, yy = 930;
+    rrect(yx, yy - 27, 76, 54, 14); ctx.fillStyle = '#FF2D2D'; ctx.fill();
+    ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(yx + 30, yy - 14); ctx.lineTo(yx + 54, yy); ctx.lineTo(yx + 30, yy + 14); ctx.closePath(); ctx.fill();
+    txt(yt, yx + 94, yy + 12, { size: 34, weight: 800, alpha: .9 });
+    // 팔로우 유도 그래픽: [사람+ 아이콘 | 팔로우] 버튼 + 누르는 손가락 커서
+    const bw = 340, bx = 540 - bw / 2, by = 1060;
+    rrect(bx, by, bw, 96, 48); ctx.fillStyle = '#FFC21A'; ctx.fill();
+    const ix = bx + 70, iy = by + 48;
+    ctx.fillStyle = '#111'; circle(ix - 6, iy - 14, 13, { fill: '#111' });
+    ctx.beginPath(); ctx.ellipse(ix - 6, iy + 20, 24, 15, 0, Math.PI, 0); ctx.fill();
+    line(ix + 24, iy - 2, ix + 44, iy - 2, 1, { color: '#111', w: 6, cap: 'round' }); line(ix + 34, iy - 12, ix + 34, iy + 8, 1, { color: '#111', w: 6, cap: 'round' });
+    txt('팔로우', bx + 200, by + 63, { size: 42, weight: 900, color: '#111', align: 'center' });
+    // 탭 표시 (손가락 대신 터치 원)
+    const tx = bx + bw - 40, ty = by + 84;
+    circle(tx, ty, 34, { stroke: C.white, w: 3, alpha: .35 }); circle(tx, ty, 20, { stroke: C.white, w: 3, alpha: .6 }); circle(tx, ty, 9, { fill: C.white });
   }],
 ];
 window.FEED_CARDS = FEED_CARDS.map(c => c[0]);
