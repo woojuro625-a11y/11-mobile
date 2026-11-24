@@ -39,24 +39,56 @@ function drawLogo(cx, cy, s, o = {}) {
   ctx.restore();
 }
 
-/* '우주로 달리기' 채널 로고 스타일: 여기어때 잘난체 + 노란 글자 + 빨강·주황 입체 그림자(오른쪽 아래) + 기울임
- * lines: [['우주로', dx], ['달리기', dx]] 줄마다 가로 오프셋(글자 크기 비율), lh: 줄 간격 비율 */
+/* '우주로 달리기' 로고타입 — 피드 톤(흰색 + 라임). window.BRAND_VARIANT: 'A' | 'B' | 'C'
+ * lines: [['우주로', dx], ['달리기', dx]] (한 줄이면 [['우주로 달리기', 0]]) */
 const BRAND_FONT = '"yg-jalnan"';
+window.BRAND_VARIANT = 'A';
 function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3]], lh = .9) {
-  ctx.save(); ctx.translate(cx, cy); ctx.transform(1, 0, -.12, 1, 0, 0);
-  ctx.font = `400 ${size}px ${BRAND_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
-  const n = lines.length, y0 = -((n - 1) * size * lh) / 2 + size * .36, depth = Math.max(2, Math.round(size * .07));
-  lines.forEach(([s, dx], i) => {
-    const x = dx * size, y = y0 + i * size * lh;
-    ctx.strokeStyle = '#120400'; ctx.lineWidth = size * .07;                       // 바깥 어두운 테두리
-    ctx.strokeText(s, x + depth, y + depth);
-    for (let k = depth; k >= 1; k--) {                                              // 입체 그림자
-      ctx.fillStyle = k > depth * .5 ? '#B8180C' : '#E8401C'; ctx.fillText(s, x + k, y + k);
+  const v = window.BRAND_VARIANT, one = lines.length === 1;
+  ctx.save(); ctx.translate(cx, cy); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+  // 한 줄 표기는 '우주로'(흰색) + '달리기'(라임) 두 조각으로 그린다
+  const parts = s => s.includes(' ') ? [[s.split(' ')[0], C.white], [s.split(' ')[1], C.lime]] : [[s, s === '달리기' ? C.lime : C.white]];
+  const drawPieces = (s, x, y, fontStr, fx) => {
+    ctx.font = fontStr; const ps = parts(s);
+    const ws = ps.map(([p]) => ctx.measureText(p).width), sp = ps.length > 1 ? size * .22 : 0;
+    let px = x - (ws.reduce((a, c) => a + c, 0) + sp) / 2;
+    ps.forEach(([p, col], k) => { fx(p, px + ws[k] / 2, y, col); px += ws[k] + sp; });
+  };
+  if (v === 'A') {          // 프리텐다드 블랙 · 기울임 · 속도선
+    ctx.transform(1, 0, -.16, 1, 0, 0);
+    const lhA = one ? 0 : .98, y0 = -((lines.length - 1) * size * lhA) / 2 + size * .36;
+    lines.forEach(([s, dx], i) => {
+      const x = dx * size * .6, y = y0 + i * size * lhA;
+      drawPieces(s, x, y, `900 ${size}px Pretendard`, (p, px, py, col) => { ctx.fillStyle = col; ctx.letterSpacing = `${-size * .04}px`; ctx.fillText(p, px, py); });
+      if (!one && i === 1) {
+        ctx.font = `900 ${size}px Pretendard`; const w = ctx.measureText(s).width;
+        [[.34, .55], [.2, .38], [.06, .22]].forEach(([fy, len], k) => {
+          ctx.fillStyle = C.lime; ctx.globalAlpha = .9 - k * .25;
+          ctx.fillRect(x - w / 2 - size * (len + .12), y - size * fy - size * .035, size * len, size * .07);
+        });
+        ctx.globalAlpha = 1;
+      }
+    });
+  } else if (v === 'B') {   // 잘난체 · 흰 글자 + 짙은 라임 입체
+    ctx.transform(1, 0, -.12, 1, 0, 0);
+    const y0 = -((lines.length - 1) * size * lh) / 2 + size * .36, depth = Math.max(2, Math.round(size * .06));
+    lines.forEach(([s, dx], i) => {
+      const x = dx * size, y = y0 + i * size * lh;
+      drawPieces(s, x, y, `400 ${size}px ${BRAND_FONT}`, (p, px, py, col) => {
+        for (let k = depth; k >= 1; k--) { ctx.fillStyle = col === C.lime ? '#5E7A00' : '#3A4A10'; ctx.fillText(p, px + k, py + k); }
+        ctx.fillStyle = col; ctx.fillText(p, px, py);
+      });
+    });
+  } else {                  // C: Black Han Sans 한 줄 + 트랙 곡선
+    ctx.transform(1, 0, -.1, 1, 0, 0);
+    const s = lines.map(l => l[0]).join(' '), sz = one ? size : size * .62;
+    drawPieces(s, 0, sz * .36, `400 ${sz}px "Black Han Sans"`, (p, px, py, col) => { ctx.fillStyle = col; ctx.fillText(p, px, py); });
+    if (!one) {
+      ctx.font = `400 ${sz}px "Black Han Sans"`; const w = ctx.measureText(s).width;
+      ctx.strokeStyle = C.lime; ctx.lineWidth = sz * .06; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.ellipse(0, sz * .62, w * .55, sz * .16, 0, Math.PI * .1, Math.PI * .9); ctx.stroke();
     }
-    const g = ctx.createLinearGradient(0, y - size * .75, 0, y);
-    g.addColorStop(0, '#FFF25A'); g.addColorStop(1, '#FFC800');
-    ctx.fillStyle = g; ctx.fillText(s, x, y);
-  });
+  }
   ctx.restore();
 }
 /* 가민 워크아웃 구성 (FIT의 workout / workout_step에서 가져온 계획) */
@@ -239,7 +271,7 @@ const FEED_CARDS = [
   // 8. 우주로 달리기 — 채널 홍보 카드
   ['08-woojuro', () => {
     ctx.fillStyle = '#07080B'; ctx.fillRect(0, 0, W, H);
-    const gl = ctx.createRadialGradient(540, 600, 0, 540, 600, 640); gl.addColorStop(0, 'rgba(255,170,20,.16)'); gl.addColorStop(1, 'rgba(255,170,20,0)');
+    const gl = ctx.createRadialGradient(540, 600, 0, 540, 600, 640); gl.addColorStop(0, 'rgba(212,255,58,.10)'); gl.addColorStop(1, 'rgba(212,255,58,0)');
     ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
     for (let i = 0; i < 90; i++) { const x = rnd(i * 3.1) * W, y = rnd(i * 7.7) * H, r = .5 + rnd(i * 1.9) * 1.4;
       ctx.globalAlpha = .15 + rnd(i * 5.3) * .4; ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
@@ -258,7 +290,7 @@ const FEED_CARDS = [
     const ring = ctx.createLinearGradient(ax - 50, ay + 50, ax + 50, ay - 50);
     ring.addColorStop(0, '#FEDA75'); ring.addColorStop(.35, '#FA7E1E'); ring.addColorStop(.65, '#D62976'); ring.addColorStop(1, '#962FBF');
     circle(ax, ay, 52, { fill: ring }); circle(ax, ay, 46, { fill: '#121212' }); circle(ax, ay, 42, { fill: '#05070C' });
-    woojuroText(ax, ay, 26, [['우주로', -.25], ['달리기', .25]], .9);
+    woojuroText(ax, ay, 28, [['우주로', -.15], ['달리기', .15]], .9);
     txt('우주로 달리기', ax + 76, ay + 12, { size: 34, weight: 900 });
     const bw = 190, bh = 68, bx = px + pw - bw - 34, by = ay - bh / 2;
     rrect(bx, by, bw, bh, 14); ctx.fillStyle = '#0095F6'; ctx.fill();
@@ -279,6 +311,7 @@ window.workoutImage = () => {
   return o.toDataURL('image/png');
 };
 window.ready = window.ready.then(async () => {
+  await document.fonts.load('400 100px "Black Han Sans"', '우주로 달리기');
   const f = new FontFace('yg-jalnan', 'url(node_modules/@noonnu/yg-jalnan/fonts/yg-jalnan-normal.woff)'); await f.load(); document.fonts.add(f);
   return true;
 });

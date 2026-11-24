@@ -37,7 +37,15 @@ await page.evaluate(() => window.ready);
 const grab = t => page.evaluate(t => { window.draw(t); return document.getElementById('c').toDataURL('image/png'); }, t)
   .then(u => Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
 
-if (args.includes('--cards')) {
+if (args.includes('--brand-variants')) {
+  const dir = path.join(OUT, 'brand'); fs.mkdirSync(dir, { recursive: true });
+  const names = await page.evaluate(() => window.FEED_CARDS);
+  for (const v of ['A', 'B', 'C']) for (const i of [names.length - 1, 2]) {
+    const u = await page.evaluate(([v, i]) => { window.BRAND_VARIANT = v; window.drawFeedCard(i); return document.getElementById('c').toDataURL('image/png'); }, [v, i]);
+    fs.writeFileSync(path.join(dir, `${v}-${names[i]}.png`), Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
+  }
+  console.log('로고 시안:', dir);
+} else if (args.includes('--cards')) {
   const dir = path.join(OUT, 'cards'); fs.mkdirSync(dir, { recursive: true });
   const names = await page.evaluate(() => window.FEED_CARDS);
   for (let i = 0; i < names.length; i++) {
