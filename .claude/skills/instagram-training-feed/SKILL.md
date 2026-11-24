@@ -74,7 +74,7 @@ description: "인스타그램 훈련 피드 양식" — Garmin 러닝 데이터(
 | 05 심박존 분석 | 본훈련 존 도넛 + 존별 시간·% + 세트별 존 누적 막대 |
 | 06 회복 & 라스트 | 회복 조깅 N회 평균(거리·페이스·심박) + 구간 칩 / 라스트 스퍼트 페이스 + 약 520m + 목표 대비 |
 | 07 러닝 다이내믹스 | 케이던스·보폭·지면 접촉·수직 진폭·수직 비율·최고 속도 + 훈련 효과 게이지 |
-| 08 우주로 달리기 (홍보) | 최소한으로. 정가운데 `woojuroText()` 로고 — **흰색 한 색, 장식 없음**(기울임·그림자·그라데이션·라임 강조 모두 금지, 사용자 피드백). 서체만 `window.BRAND_SIMPLE_FONT`로 바꿔 쓴다(기본 **Hahmlet ExtraBold**, 사용자 선택 6번). 후보 비교는 `template/font-options.html`(Orbit, Do Hyeon, Gasoek One, Song Myung, Gothic A1, Hahmlet, Jua, Bagel Fat One). 아래에 유튜브 아이콘 + "유튜브 채널", 인스타그램 프로필 줄(그라데이션 링 아바타 + "우주로 달리기" + 파란 `#0095F6` "팔로우" + 탭 표시). 그 밖의 문구 없음 |
+| 08 우주로 달리기 (홍보) | 최소한으로. 정가운데 `woojuroText()` 로고 — **흰색 한 색, 장식 없음**(기울임·그림자·그라데이션·라임 강조 모두 금지, 사용자 피드백). 서체만 `window.BRAND_SIMPLE_FONT`로 바꿔 쓴다(기본 **Hahmlet ExtraBold**, 사용자 선택 6번). 후보 비교는 `template/font-options.html`(Orbit, Do Hyeon, Gasoek One, Song Myung, Gothic A1, Hahmlet, Jua, Bagel Fat One). 아래에 유튜브 아이콘 + "유튜브 채널", 인스타그램 프로필 줄(그라데이션 링 아바타에 **사용자 프로필 사진 얼굴 원형 크롭** — `assets/profile.jpg`, `drawImage` 크롭 영역은 사진마다 조정; 아이디 **woojuro_running** + 아래 "우주로 달리기" + 파란 `#0095F6` "팔로우" + 탭 표시). 그 밖의 문구 없음. 프로필 사진 원본은 저장소에 커밋하지 않는다(`.gitignore`) |
 
 파워·심박 회복은 카드에도 넣지 않는다. `node render.mjs --cards`로 `out/cards/`에 저장.
 

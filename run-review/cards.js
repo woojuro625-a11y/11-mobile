@@ -313,14 +313,20 @@ const FEED_CARDS = [
     ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(yx + 30, yy - 14); ctx.lineTo(yx + 54, yy); ctx.lineTo(yx + 30, yy + 14); ctx.closePath(); ctx.fill();
     txt(yt, yx + 94, yy + 13, { size: 36, weight: 800 });
     // 인스타그램 프로필 행처럼: 그라데이션 링 아바타 + 이름 + 파란 팔로우 버튼
-    const px = 150, py = 1010, pw = W - 300, ph = 150;
+    const px = 110, py = 990, pw = W - 220, ph = 190;
     rrect(px, py, pw, ph, 28); ctx.fillStyle = '#121212'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 2; ctx.stroke();
-    const ax = px + 86, ay = py + ph / 2;
+    const ax = px + 104, ay = py + ph / 2;
     const ring = ctx.createLinearGradient(ax - 50, ay + 50, ax + 50, ay - 50);
     ring.addColorStop(0, '#FEDA75'); ring.addColorStop(.35, '#FA7E1E'); ring.addColorStop(.65, '#D62976'); ring.addColorStop(1, '#962FBF');
-    circle(ax, ay, 52, { fill: ring }); circle(ax, ay, 46, { fill: '#121212' }); circle(ax, ay, 42, { fill: '#05070C' });
-    woojuroText(ax, ay, 24, [['우주로', 0], ['달리기', 0]], .9);
-    txt('우주로 달리기', ax + 76, ay + 12, { size: 34, weight: 900 });
+    circle(ax, ay, 76, { fill: ring }); circle(ax, ay, 70, { fill: '#121212' });
+    // 프로필 사진 (얼굴 부분 원형 크롭)
+    const img = window.PROFILE_IMG, pr = 66;
+    if (img && img.complete && img.naturalWidth) {
+      ctx.save(); ctx.beginPath(); ctx.arc(ax, ay, pr, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(img, 600, 520, 560, 560, ax - pr, ay - pr, pr * 2, pr * 2); ctx.restore();
+    } else { circle(ax, ay, pr, { fill: '#05070C' }); woojuroText(ax, ay, 24, [['우주로', 0], ['달리기', 0]], .9); }
+    txt('woojuro_running', ax + 100, ay - 2, { size: 34, weight: 800 });
+    txt('우주로 달리기', ax + 100, ay + 38, { size: 24, weight: 700, alpha: .6 });
     const bw = 190, bh = 68, bx = px + pw - bw - 34, by = ay - bh / 2;
     rrect(bx, by, bw, bh, 14); ctx.fillStyle = '#0095F6'; ctx.fill();
     txt('팔로우', bx + bw / 2, by + 46, { size: 32, weight: 800, color: '#FFFFFF', align: 'center' });
@@ -339,7 +345,9 @@ window.workoutImage = () => {
   const o = document.createElement('canvas'); o.width = W; o.height = 374; o.getContext('2d').drawImage(cv, 0, 0);
   return o.toDataURL('image/png');
 };
+window.PROFILE_IMG = new Image(); window.PROFILE_IMG.src = 'assets/profile.jpg';
 window.ready = window.ready.then(async () => {
+  try { await window.PROFILE_IMG.decode(); } catch (e) { /* 사진이 없으면 로고 아바타로 대체 */ }
   await document.fonts.load('400 100px "Black Han Sans"', '우주로 달리기');
   await document.fonts.load(`${window.BRAND_SIMPLE_WEIGHT || 400} 100px ${window.BRAND_SIMPLE_FONT}`, '우주로 달리기');
   const f = new FontFace('yg-jalnan', 'url(node_modules/@noonnu/yg-jalnan/fonts/yg-jalnan-normal.woff)'); await f.load(); document.fonts.add(f);
