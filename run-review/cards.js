@@ -44,7 +44,7 @@ function drawLogo(cx, cy, s, o = {}) {
 const BRAND_FONT = '"yg-jalnan"';
 window.BRAND_VARIANT = 'S';
 /* S(심플): 흰색 한 색, 장식 없음 — 서체만 바꿔 쓴다 */
-window.BRAND_SIMPLE_FONT = '"Do Hyeon"';
+window.BRAND_SIMPLE_FONT = '"Hahmlet"'; window.BRAND_SIMPLE_WEIGHT = 800;
 function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3]], lh = .9) {
   const v = window.BRAND_VARIANT, one = lines.length === 1;
   ctx.save(); ctx.translate(cx, cy); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
@@ -58,7 +58,7 @@ function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3
   };
   if (v === 'S') {          // 흰색 · 가운데 정렬 · 장식 없음
     const lhS = one ? 0 : 1.0, y0 = -((lines.length - 1) * size * lhS) / 2 + size * .36;
-    ctx.font = `400 ${size}px ${window.BRAND_SIMPLE_FONT}`; ctx.fillStyle = C.white;
+    ctx.font = `${window.BRAND_SIMPLE_WEIGHT || 400} ${size}px ${window.BRAND_SIMPLE_FONT}`; ctx.fillStyle = C.white;
     lines.forEach(([s], i) => ctx.fillText(s, 0, y0 + i * size * lhS));
   } else if (v === 'A') {   // 프리텐다드 블랙 · 기울임 · 속도선
     ctx.transform(1, 0, -.16, 1, 0, 0);
@@ -97,6 +97,10 @@ function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3
   }
   ctx.restore();
 }
+function arrow(x, y, ang, size, col) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size, -size * .45); ctx.lineTo(-size, size * .45); ctx.closePath(); ctx.fill(); ctx.restore();
+}
 /* 가민 워크아웃 구성 (FIT의 workout / workout_step에서 가져온 계획) */
 const WORKOUT = {
   name: '2km*5+1km 롱 인터벌',
@@ -117,20 +121,35 @@ function drawWorkoutPlan(x, y, w) {
   // 스텝 타임라인 (길이 비례, 회복은 실제 평균 520m 비율로)
   const units = WORKOUT.steps.reduce((a, st) => a + (st.run ? st.dist : 520), 0), gap = 4;
   const bw = w - gap * (WORKOUT.steps.length - 1);
-  let cx = x; const by = y + 34, bh = 54;
+  let cx = x; const by = y + 78, bh = 54;
+  // 헤더 오른쪽: 빌드업 규칙
+  const rule = '목표 페이스 세트마다 -5초', rw = measure(rule, 24, 900) + 36;
+  rrect(x + w - rw, y - 30, rw, 40, 20); ctx.fillStyle = C.lime; ctx.fill();
+  txt(rule, x + w - rw / 2, y - 2, { size: 24, weight: 900, color: C.bg, align: 'center' });
+  const runCenters = [];
   let n = 0;
   WORKOUT.steps.forEach((st, i) => {
     const sw = bw * (st.run ? st.dist : 520) / units;
     rrect(cx, by, sw, bh, 10);
     ctx.fillStyle = st.run ? (st.dist === 1000 ? C.lime : ZC[3]) : 'rgba(92,200,255,.55)'; ctx.fill();
     if (st.run) {
-      n++;
+      n++; runCenters.push([cx + sw / 2, st.lo]);
       txt(st.dist === 1000 ? '1km' : `2km`, cx + sw / 2, by + 36, { size: 24, fam: NUM, weight: 400, color: C.bg, align: 'center' });
       txt(`${fmtPace(st.lo)}`, cx + sw / 2, by + bh + 28, { size: 19, fam: MONO, weight: 700, align: 'center', alpha: .85 });
       txt(`~${fmtPace(st.hi)}`, cx + sw / 2, by + bh + 50, { size: 19, fam: MONO, weight: 700, align: 'center', alpha: .55 });
     }
     cx += sw + gap;
   });
+  // 세트 사이 -5초 배지 (목표 하한이 몇 초 빨라졌는지)
+  for (let k = 1; k < runCenters.length; k++) {
+    const [x1, p1] = runCenters[k - 1], [x2, p2] = runCenters[k], mx = (x1 + x2) / 2, dd = p1 - p2;
+    ctx.save(); ctx.strokeStyle = C.lime; ctx.lineWidth = 3; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(x1 + 20, by - 12); ctx.quadraticCurveTo(mx, by - 44, x2 - 20, by - 12); ctx.stroke(); ctx.restore();
+    arrow(x2 - 18, by - 10, Math.atan2(24, 40), 12, C.lime);
+    const bt = `-${dd}초`, bwid = measure(bt, 22, 900) + 20;
+    rrect(mx - bwid / 2, by - 62, bwid, 30, 15); ctx.fillStyle = C.bg; ctx.fill(); ctx.strokeStyle = C.lime; ctx.lineWidth = 2; ctx.stroke();
+    txt(bt, mx, by - 40, { size: 22, weight: 900, color: C.lime, align: 'center' });
+  }
   // 범례
   const ly = by + bh + 92;
   rrect(x, ly - 18, 22, 22, 5); ctx.fillStyle = ZC[3]; ctx.fill();
@@ -148,7 +167,7 @@ function cardFrame(n, title, sub, accent = C.lime) {
   line(72, 1232, W - 72, 1232, 1, { color: C.white, w: 1.5, alpha: .15 });
   pin(84, 1272, 11, C.white);
   txt('목동교 멀티스포츠존 · 2026.11.04', 106, 1283, { size: 24, weight: 700, alpha: .7 });
-  woojuroText(W - 72 - 88, 1272, 36, [['우주로 달리기', 0]]);
+  woojuroText(W - 72 - 92, 1272, 30, [['우주로 달리기', 0]]);
 }
 function stat(x, y, v, u, l, o = {}) {
   const size = o.size || 120;
@@ -173,26 +192,26 @@ const FEED_CARDS = [
   // 3. 세트별 기록
   ['03-sets', () => {
     cardFrame(3, '세트별 기록', '2000m × 5 + 마지막 스텝 · 모든 세트 목표 페이스 적중');
-    panel(56, 340, W - 112, 250, 'rgba(26,31,38,.9)');
-    drawWorkoutPlan(84, 398, W - 168);
+    panel(56, 330, W - 112, 312, 'rgba(26,31,38,.9)');
+    drawWorkoutPlan(84, 386, W - 168);
     const cols = [72, 200, 360, 560, 800];
-    ['세트', '거리', '페이스', '목표 범위', '심박 평균/최대'].forEach((h, i) => txt(h, cols[i], 650, { size: 22, weight: 800, alpha: .5 }));
-    txt('Z4+Z5', W - 72, 650, { size: 22, weight: 800, alpha: .5, align: 'right' });
+    ['세트', '거리', '페이스', '목표 범위', '심박 평균/최대'].forEach((h, i) => txt(h, cols[i], 690, { size: 22, weight: 800, alpha: .5 }));
+    txt('Z4+Z5', W - 72, 690, { size: 22, weight: 800, alpha: .5, align: 'right' });
     const rows = [...REPS.map((r, i) => ({ n: `${i + 1}세트`, d: '2000m', p: r.pace, lo: r.lo, hi: r.hi, hr: Math.round(r.hr), mx: REPMAX[i], z: REPZ[i] })),
       { n: '라스트', d: '518m', p: FINAL.pace, lo: FINAL.lo, hi: FINAL.hi, hr: FINAL.hr, mx: 172, z: FINALZ }];
     rows.forEach((r, i) => {
-      const y = 722 + i * 82, last = i === 5;
-      if (i % 2 === 0) { ctx.save(); ctx.globalAlpha = .5; rrect(56, y - 56, W - 112, 80, 16); ctx.fillStyle = C.bg2; ctx.fill(); ctx.restore(); }
+      const y = 756 + i * 76, last = i === 5;
+      if (i % 2 === 0) { ctx.save(); ctx.globalAlpha = .5; rrect(56, y - 52, W - 112, 74, 16); ctx.fillStyle = C.bg2; ctx.fill(); ctx.restore(); }
       txt(r.n, cols[0], y, { size: 30, weight: 900, color: last ? C.lime : C.white });
       txt(r.d, cols[1], y, { size: 34, fam: NUM, weight: 400, alpha: .85 });
-      txt(fmtPace(r.p), cols[2], y + 4, { size: 54, fam: NUM, weight: 400, color: last ? C.lime : C.white });
+      txt(fmtPace(r.p), cols[2], y + 4, { size: 50, fam: NUM, weight: 400, color: last ? C.lime : C.white });
       circle(cols[3] + 16, y - 10, 16, { fill: C.lime }); check(cols[3] + 16, y - 10, 16, 1);
       txt(`${fmtPace(r.lo)}–${fmtPace(r.hi)}`, cols[3] + 42, y, { size: 24, fam: MONO, weight: 700, alpha: .8 });
       txt(`${r.hr} / ${r.mx}`, cols[4], y, { size: 34, fam: NUM, weight: 400, color: C.white });
       const tot = r.z.reduce((a, c) => a + c, 0);
       txt(`${Math.round((r.z[3] + r.z[4]) / tot * 100)}%`, W - 72, y, { size: 34, fam: NUM, weight: 400, color: ZC[3], align: 'right' });
     });
-    txt(`세트마다 3~6초씩 단축 · ${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)}, 마지막 ${fmtPace(FINAL.pace)}`, 72, 1196, { size: 28, weight: 900, color: C.lime });
+    txt(`세트마다 3~6초씩 단축 · ${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)} · 마지막 ${fmtPace(FINAL.pace)}`, 72, 1204, { size: 28, weight: 900, color: C.lime });
   }],
   // 4. 심박 변화 그래프
   ['04-hr-trend', () => {
@@ -205,7 +224,7 @@ const FEED_CARDS = [
     hrGraph(gx, gy, gw, gh, 0, T, 1, { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
     pauseMarks(X, gy, gh);
     drop(84, 1036, 9, C.sky);
-    txt('그래프가 끊긴 곳 = 급수·완전 휴식 (시계 일시정지, 모두 회복 조깅 중)', 104, 1044, { size: 24, weight: 700, color: C.sky });
+    txt('그래프가 끊긴 곳 = 급수·완전 휴식 (시계 일시정지 · 모두 회복 조깅 중)', 104, 1044, { size: 24, weight: 700, color: C.sky });
     txt('세트별 최대 심박', 72, 1094, { size: 24, weight: 800, alpha: .6 });
     REPMAX.forEach((m, i) => { const x = 72 + i * 190; rrect(x, 1112, 172, 70, 16); ctx.strokeStyle = 'rgba(255,90,95,.6)'; ctx.lineWidth = 2; ctx.stroke();
       txt(String(m), x + 70, 1162, { size: 44, fam: NUM, weight: 400, align: 'center' }); txt(`${i + 1}세트`, x + 132, 1158, { size: 18, weight: 800, color: C.coral, align: 'center' }); });
@@ -283,7 +302,7 @@ const FEED_CARDS = [
       ctx.globalAlpha = .15 + rnd(i * 5.3) * .4; ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
     txt(`${TOTAL_SLIDES} / ${TOTAL_SLIDES}`, W - 72, 104, { size: 24, fam: MONO, weight: 700, align: 'right', alpha: .55 });
-    woojuroText(540, 560, 250);
+    woojuroText(540, 560, 200);
     // 유튜브 채널 (아이콘 + 한 줄)
     const yt = '유튜브 채널', ytw = 76 + 18 + measure(yt, 36, 800), yx = 540 - ytw / 2, yy = 900;
     rrect(yx, yy - 27, 76, 54, 14); ctx.fillStyle = '#FF2D2D'; ctx.fill();
@@ -296,7 +315,7 @@ const FEED_CARDS = [
     const ring = ctx.createLinearGradient(ax - 50, ay + 50, ax + 50, ay - 50);
     ring.addColorStop(0, '#FEDA75'); ring.addColorStop(.35, '#FA7E1E'); ring.addColorStop(.65, '#D62976'); ring.addColorStop(1, '#962FBF');
     circle(ax, ay, 52, { fill: ring }); circle(ax, ay, 46, { fill: '#121212' }); circle(ax, ay, 42, { fill: '#05070C' });
-    woojuroText(ax, ay, 30, [['우주로', 0], ['달리기', 0]], .9);
+    woojuroText(ax, ay, 24, [['우주로', 0], ['달리기', 0]], .9);
     txt('우주로 달리기', ax + 76, ay + 12, { size: 34, weight: 900 });
     const bw = 190, bh = 68, bx = px + pw - bw - 34, by = ay - bh / 2;
     rrect(bx, by, bw, bh, 14); ctx.fillStyle = '#0095F6'; ctx.fill();
@@ -311,14 +330,14 @@ window.FEED_CARDS = FEED_CARDS.map(c => c[0]);
 window.workoutImage = () => {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
-  panel(24, 24, W - 48, 282, 'rgba(26,31,38,1)');
-  drawWorkoutPlan(64, 96, W - 128);
-  const o = document.createElement('canvas'); o.width = W; o.height = 330; o.getContext('2d').drawImage(cv, 0, 0);
+  panel(24, 24, W - 48, 326, 'rgba(26,31,38,1)');
+  drawWorkoutPlan(64, 92, W - 128);
+  const o = document.createElement('canvas'); o.width = W; o.height = 374; o.getContext('2d').drawImage(cv, 0, 0);
   return o.toDataURL('image/png');
 };
 window.ready = window.ready.then(async () => {
   await document.fonts.load('400 100px "Black Han Sans"', '우주로 달리기');
-  await document.fonts.load(`400 100px ${window.BRAND_SIMPLE_FONT}`, '우주로 달리기');
+  await document.fonts.load(`${window.BRAND_SIMPLE_WEIGHT || 400} 100px ${window.BRAND_SIMPLE_FONT}`, '우주로 달리기');
   const f = new FontFace('yg-jalnan', 'url(node_modules/@noonnu/yg-jalnan/fonts/yg-jalnan-normal.woff)'); await f.load(); document.fonts.add(f);
   return true;
 });

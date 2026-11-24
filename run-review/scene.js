@@ -564,9 +564,19 @@ function sRecovery(t) {
   const t0 = b(64);
   bgFill(C.deep, .1 + .08 * pulse(t, 5), 540, 900, '92,200,255');
   const inU = E.outX(P(t, t0, t0 + .35)), off = 1 - inU;
-  sectionLabel('회복 조깅', '03', t0, t, C.sky);
-  maskText('쉬는 구간까지', 72, 320, { size: 84, weight: 900, color: C.white }, off);
-  maskText('계획대로.', 72, 424, { size: 84, weight: 900, color: C.sky }, 1 - E.outX(P(t, t0 + .08, t0 + .43)));
+  sectionLabel('회복구간', '03', t0, t, C.sky);
+  maskText('회복구간', 72, 400, { size: 110, weight: 900, color: C.white }, off);
+  // 제목 옆 정보: 회복 목표 유지 · 총 거리/시간 · 급수·휴식
+  const rx = 560;
+  ctx.save(); ctx.globalAlpha = inU;
+  circle(rx + 16, 262, 16, { fill: C.sky }); check(rx + 16, 262, 16, 1);
+  txt(`목표 ${fmtPace(300)}~${fmtPace(390)} 유지`, rx + 44, 272, { size: 30, weight: 900, color: C.sky });
+  txt('총 거리', rx, 318, { size: 22, weight: 700, alpha: .6 }); txt('2.60', rx, 380, { size: 48, fam: NUM, weight: 400 });
+  txt('km', rx + measure('2.60', 48, 400, NUM) + 6, 380, { size: 22, weight: 900, color: C.sky });
+  txt('총 시간', rx + 190, 318, { size: 22, weight: 700, alpha: .6 }); txt('16:08', rx + 190, 380, { size: 48, fam: NUM, weight: 400 });
+  drop(rx + 12, 424, 9, C.sky);
+  txt(`급수·휴식 ${PAUSES.length}회 · ${fmtDur(PAUSES.reduce((a, p) => a + p[1], 0))}`, rx + 32, 434, { size: 26, weight: 800, alpha: .85 });
+  ctx.restore();
   // 평균값 (한 번에)
   maskText(`회복 조깅 ${RECS.length}회 평균`, 72, 540, { size: 30, weight: 800, color: C.sky }, off);
   const avg = [[String(RECAVG.dist), 'm', '평균 회복 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박']];
@@ -749,8 +759,8 @@ function sOutro(t) {
     }
     const pts = [
       ['목적', '젖산역치(LT) 향상과', '레이스 페이스 지속력 강화'],
-      ['방식', '2000m × 5 빌드업: 세트마다 3~6초씩 단축,', '사이사이 약 520m 회복 조깅'],
-      ['결과', `${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)}, 마지막 ${fmtPace(FINAL.pace)}까지 가속`, '본훈련 64%를 역치(Z4)에서 소화'],
+      ['방식', '2000m × 5 빌드업 · 세트마다 3~6초씩 단축', '사이사이 약 520m 회복 조깅'],
+      ['결과', `${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)} · 마지막 ${fmtPace(FINAL.pace)}까지 가속`, '본훈련 64%를 역치(Z4)에서 소화'],
     ];
     pts.forEach(([h, l1, l2], i) => {
       const tb = b(98 + i * 2); const u = E.outX(P(t, tb, tb + .35));
