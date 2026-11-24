@@ -323,7 +323,8 @@ const FEED_CARDS = [
     const img = window.PROFILE_IMG, pr = 66;
     if (img && img.complete && img.naturalWidth) {
       ctx.save(); ctx.beginPath(); ctx.arc(ax, ay, pr, 0, Math.PI * 2); ctx.clip();
-      ctx.drawImage(img, 600, 520, 560, 560, ax - pr, ay - pr, pr * 2, pr * 2); ctx.restore();
+      const CS = 560 / .85, CX = 880 - CS / 2, CY = 800 - CS / 2; // 얼굴 중심 (880,800), 85% 축소
+      ctx.drawImage(img, CX, CY, CS, CS, ax - pr, ay - pr, pr * 2, pr * 2); ctx.restore();
     } else { circle(ax, ay, pr, { fill: '#05070C' }); woojuroText(ax, ay, 24, [['우주로', 0], ['달리기', 0]], .9); }
     txt('woojuro_running', ax + 100, ay - 2, { size: 34, weight: 800 });
     txt('우주로 달리기', ax + 100, ay + 38, { size: 24, weight: 700, alpha: .6 });
