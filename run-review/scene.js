@@ -681,7 +681,7 @@ function sAnalysis(t) {
 
 // S7: 훈련 요약 → 엔드카드(커버 재등장, 루프)
 function sOutro(t) {
-  const t0 = b(96), endT = b(106);
+  const t0 = b(96), endT = b(105);
   if (t < endT) {
     bgFill(C.bg, .1, 540, 900);
     const wl = 1 - E.outX(P(t, t0, t0 + .35)); if (wl > 0) { ctx.fillStyle = C.lime; ctx.fillRect(W * (1 - wl), 0, W * wl, H); }
@@ -723,18 +723,18 @@ function titleBadge(t, col, dark) {
 }
 const SECS = [[0, '인트로'], [7.454, '세션 요약'], [9.427, '본훈련'], [11.378, '심박 추이'], [15.279, '세트'], [29.954, '스퍼트'], [32.879, '회복'], [36.78, '분석'], [48.484, '정리']];
 function hud(t, dark = false) {
-  if (t < .25 || t >= b(106)) return;
+  if (t < .25 || t >= b(105)) return;
   const a = P(t, .25, .6);
   const col = dark ? C.bg : C.white;
   ctx.save(); ctx.globalAlpha = a;
   titleBadge(t, col, dark);
   // 세션 진행 (영상 진행 → 세션 거리로 매핑)
-  const km = (13.12 * clamp((t - .1) / (b(106) - .1))).toFixed(2);
+  const km = (13.12 * clamp((t - .1) / (b(105) - .1))).toFixed(2);
   txt(`${km} km`, W - 72, 104, { size: 22, fam: MONO, weight: 700, color: col, align: 'right', alpha: .8 });
   const bx = 72, by = H - 54, bw = W - 144;
   ctx.globalAlpha = a * .25; ctx.fillStyle = col; ctx.fillRect(bx, by, bw, 3);
-  ctx.globalAlpha = a; ctx.fillStyle = dark ? C.bg : C.lime; ctx.fillRect(bx, by - 1, bw * clamp(t / b(106)), 5);
-  for (const [s] of SECS) { ctx.globalAlpha = a * .5; ctx.fillStyle = col; ctx.fillRect(bx + bw * s / b(106) - 1, by - 7, 2, 17); }
+  ctx.globalAlpha = a; ctx.fillStyle = dark ? C.bg : C.lime; ctx.fillRect(bx, by - 1, bw * clamp(t / b(105)), 5);
+  for (const [s] of SECS) { ctx.globalAlpha = a * .5; ctx.fillStyle = col; ctx.fillRect(bx + bw * s / b(105) - 1, by - 7, 2, 17); }
   let si = 0; SECS.forEach((s, i) => { if (t >= s[0]) si = i; });
   maskText(SECS[si][1], bx, by - 18, { size: 20, weight: 800, color: col, alpha: .8 }, 1 - E.outX(P(t, SECS[si][0], SECS[si][0] + .3)));
   ctx.restore();
