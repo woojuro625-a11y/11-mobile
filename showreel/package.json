@@ -1,0 +1,13 @@
+{
+  "name": "pipefitters-bible-showreel",
+  "private": true,
+  "version": "1.0.0",
+  "description": "파이프피터의 바이블 — 15초 모션 그래픽 쇼릴",
+  "scripts": {
+    "audio": "python3 audio.py",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "pretendard": "^1.3.9"
+  }
+}
