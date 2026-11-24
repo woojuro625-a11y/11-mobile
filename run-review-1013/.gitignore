@@ -1,0 +1,7 @@
+node_modules/
+out/raw*.mp4
+out/stills/
+out/*.log
+*.mp3
+assets/profile*
+*.wav

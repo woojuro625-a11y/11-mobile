@@ -45,6 +45,9 @@ def main(src, out):
     laps = msgs('lap')
     recs = msgs('record')
     zt = (msgs('zones_target') or [{}])[0]
+    act = (msgs('activity') or [{}])[0]
+    tz = (act['local_timestamp'] - act['timestamp']) if act.get('local_timestamp') and act.get('timestamp') else datetime.timedelta(0)
+    local_start = sess['start_time'] + tz  # 날짜·요일은 현지 시각 기준
 
     # --- time_in_zone (mesg 216, fitparse에선 unknown_216) ---
     lap_z, sess_z, hr_bounds = {}, None, None
@@ -127,7 +130,8 @@ def main(src, out):
         if bk['active'] and bk['target_lo'] and bk['pace']:
             bk['hit'] = bk['pace'] <= bk['target_hi'] + 0.5  # 목표보다 느리지 않으면 적중
     reps = [b for b in blocks if b['active']]
-    recs_b = [b for b in blocks if not b['active']]
+    # 회복: 훈련 종료 후 눌린 짧은 랩(100m 미만)은 제외
+    recs_b = [b for b in blocks if not b['active'] and b['dist'] >= 100]
 
     # --- 세트 후 1분 심박 회복 (회복 구간에 일시정지가 있으면 제외) ---
     for r in reps:
@@ -147,8 +151,8 @@ def main(src, out):
 
     data = dict(
         workout_name=wkt.get('wkt_name'),
-        date=sess['start_time'].strftime('%Y.%m.%d'),
-        weekday='월화수목금토일'[sess['start_time'].weekday()] + '요일',
+        date=local_start.strftime('%Y.%m.%d'),
+        weekday='월화수목금토일'[local_start.weekday()] + '요일',
         session=dict(dist_km=round(sess['total_distance'] / 1000, 2), timer=round(sess['total_timer_time']),
                      elapsed=round(sess['total_elapsed_time']),
                      avg_pace=round(sess['total_timer_time'] / sess['total_distance'] * 1000, 1),
@@ -157,7 +161,7 @@ def main(src, out):
                      stride_m=round((sess.get('avg_step_length') or 0) / 1000, 2), gct_ms=sess.get('avg_stance_time'),
                      vo_cm=round((sess.get('avg_vertical_oscillation') or 0) / 10, 1), vratio=sess.get('avg_vertical_ratio'),
                      temp=sess.get('avg_temperature'), te_aer=sess.get('total_training_effect'),
-                     te_ana=sess.get('total_anaerobic_training_effect'), max_kmh=round((sess.get('enhanced_max_speed') or 0) * 3.6, 1)),
+                     te_ana=sess.get('total_anaerobic_training_effect'), max_kmh=round((sess.get('enhanced_max_speed') or float(SPD.max())) * 3.6, 1)),
         hr_zone_bounds=hr_bounds, session_zones=z5(sess_z),
         main=dict(dist=round(main_d), time=round(main_t), pace=round(main_t / main_d * 1000, 1) if main_d else None,
                   hr=round(main_hr), zones=mz),
