@@ -59,6 +59,48 @@ function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3
   });
   ctx.restore();
 }
+/* 가민 워크아웃 구성 (FIT의 workout / workout_step에서 가져온 계획) */
+const WORKOUT = {
+  name: '2km*5+1km 롱 인터벌',
+  steps: [
+    ...REPS.flatMap(r => [{ run: true, dist: 2000, lo: r.lo, hi: r.hi }, { run: false, lo: 300, hi: 390 }]),
+    { run: true, dist: 1000, lo: 215, hi: 220 },
+  ],
+};
+function drawWorkoutPlan(x, y, w) {
+  // 제목줄
+  rrect(x, y - 30, 40, 40, 10); ctx.fillStyle = C.lime; ctx.fill();
+  ctx.save(); ctx.strokeStyle = C.bg; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  [[-10, -4], [-10, 6]].forEach(() => {});
+  line(x + 11, y - 18, x + 29, y - 18, 1, { color: C.bg, w: 4, cap: 'round' }); line(x + 11, y - 10, x + 29, y - 10, 1, { color: C.bg, w: 4, cap: 'round' }); line(x + 11, y - 2, x + 23, y - 2, 1, { color: C.bg, w: 4, cap: 'round' });
+  ctx.restore();
+  txt('가민 워크아웃', x + 56, y, { size: 26, weight: 800, alpha: .6 });
+  txt(WORKOUT.name, x + 56 + measure('가민 워크아웃', 26, 800) + 14, y + 1, { size: 30, weight: 900 });
+  // 스텝 타임라인 (길이 비례, 회복은 실제 평균 520m 비율로)
+  const units = WORKOUT.steps.reduce((a, st) => a + (st.run ? st.dist : 520), 0), gap = 4;
+  const bw = w - gap * (WORKOUT.steps.length - 1);
+  let cx = x; const by = y + 34, bh = 54;
+  let n = 0;
+  WORKOUT.steps.forEach((st, i) => {
+    const sw = bw * (st.run ? st.dist : 520) / units;
+    rrect(cx, by, sw, bh, 10);
+    ctx.fillStyle = st.run ? (st.dist === 1000 ? C.lime : ZC[3]) : 'rgba(92,200,255,.55)'; ctx.fill();
+    if (st.run) {
+      n++;
+      txt(st.dist === 1000 ? '1km' : `2km`, cx + sw / 2, by + 36, { size: 24, fam: NUM, weight: 400, color: C.bg, align: 'center' });
+      txt(`${fmtPace(st.lo)}`, cx + sw / 2, by + bh + 28, { size: 19, fam: MONO, weight: 700, align: 'center', alpha: .85 });
+      txt(`~${fmtPace(st.hi)}`, cx + sw / 2, by + bh + 50, { size: 19, fam: MONO, weight: 700, align: 'center', alpha: .55 });
+    }
+    cx += sw + gap;
+  });
+  // 범례
+  const ly = by + bh + 92;
+  rrect(x, ly - 18, 22, 22, 5); ctx.fillStyle = ZC[3]; ctx.fill();
+  txt('질주 · 목표 페이스', x + 32, ly, { size: 22, weight: 700, alpha: .75 });
+  const lx2 = x + 32 + measure('질주 · 목표 페이스', 22, 700) + 30;
+  rrect(lx2, ly - 18, 22, 22, 5); ctx.fillStyle = 'rgba(92,200,255,.55)'; ctx.fill();
+  txt(`회복 · 랩 버튼까지 ${fmtPace(300)}~${fmtPace(390)}`, lx2 + 32, ly, { size: 22, weight: 700, alpha: .75 });
+}
 function cardFrame(n, title, sub, accent = C.lime) {
   bgFill(C.bg, .1, 900, 160);
   titleBadge(99, C.white, false);
@@ -93,24 +135,26 @@ const FEED_CARDS = [
   // 3. 세트별 기록
   ['03-sets', () => {
     cardFrame(3, '세트별 기록', '2000m × 5 + 마지막 스텝 · 모든 세트 목표 페이스 적중');
+    panel(56, 340, W - 112, 250, 'rgba(26,31,38,.9)');
+    drawWorkoutPlan(84, 398, W - 168);
     const cols = [72, 200, 360, 560, 800];
-    ['세트', '거리', '페이스', '목표 범위', '심박 평균/최대'].forEach((h, i) => txt(h, cols[i], 380, { size: 22, weight: 800, alpha: .5 }));
-    txt('Z4+Z5', W - 72, 380, { size: 22, weight: 800, alpha: .5, align: 'right' });
+    ['세트', '거리', '페이스', '목표 범위', '심박 평균/최대'].forEach((h, i) => txt(h, cols[i], 650, { size: 22, weight: 800, alpha: .5 }));
+    txt('Z4+Z5', W - 72, 650, { size: 22, weight: 800, alpha: .5, align: 'right' });
     const rows = [...REPS.map((r, i) => ({ n: `${i + 1}세트`, d: '2000m', p: r.pace, lo: r.lo, hi: r.hi, hr: Math.round(r.hr), mx: REPMAX[i], z: REPZ[i] })),
       { n: '라스트', d: '518m', p: FINAL.pace, lo: FINAL.lo, hi: FINAL.hi, hr: FINAL.hr, mx: 172, z: FINALZ }];
     rows.forEach((r, i) => {
-      const y = 480 + i * 118, last = i === 5;
-      if (i % 2 === 0) { ctx.save(); ctx.globalAlpha = .5; rrect(56, y - 70, W - 112, 106, 18); ctx.fillStyle = C.bg2; ctx.fill(); ctx.restore(); }
+      const y = 722 + i * 82, last = i === 5;
+      if (i % 2 === 0) { ctx.save(); ctx.globalAlpha = .5; rrect(56, y - 56, W - 112, 80, 16); ctx.fillStyle = C.bg2; ctx.fill(); ctx.restore(); }
       txt(r.n, cols[0], y, { size: 30, weight: 900, color: last ? C.lime : C.white });
       txt(r.d, cols[1], y, { size: 34, fam: NUM, weight: 400, alpha: .85 });
-      txt(fmtPace(r.p), cols[2], y + 6, { size: 66, fam: NUM, weight: 400, color: last ? C.lime : C.white });
+      txt(fmtPace(r.p), cols[2], y + 4, { size: 54, fam: NUM, weight: 400, color: last ? C.lime : C.white });
       circle(cols[3] + 16, y - 10, 16, { fill: C.lime }); check(cols[3] + 16, y - 10, 16, 1);
       txt(`${fmtPace(r.lo)}–${fmtPace(r.hi)}`, cols[3] + 42, y, { size: 24, fam: MONO, weight: 700, alpha: .8 });
       txt(`${r.hr} / ${r.mx}`, cols[4], y, { size: 34, fam: NUM, weight: 400, color: C.white });
       const tot = r.z.reduce((a, c) => a + c, 0);
       txt(`${Math.round((r.z[3] + r.z[4]) / tot * 100)}%`, W - 72, y, { size: 34, fam: NUM, weight: 400, color: ZC[3], align: 'right' });
     });
-    txt(`세트마다 3~6초씩 단축 · ${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)}, 마지막 ${fmtPace(FINAL.pace)}`, 72, 1180, { size: 30, weight: 900, color: C.lime });
+    txt(`세트마다 3~6초씩 단축 · ${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)}, 마지막 ${fmtPace(FINAL.pace)}`, 72, 1196, { size: 28, weight: 900, color: C.lime });
   }],
   // 4. 심박 변화 그래프
   ['04-hr-trend', () => {
@@ -225,6 +269,15 @@ const FEED_CARDS = [
   }],
 ];
 window.FEED_CARDS = FEED_CARDS.map(c => c[0]);
+/* 워크아웃 구성 단독 이미지 (1080×330) */
+window.workoutImage = () => {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  panel(24, 24, W - 48, 282, 'rgba(26,31,38,1)');
+  drawWorkoutPlan(64, 96, W - 128);
+  const o = document.createElement('canvas'); o.width = W; o.height = 330; o.getContext('2d').drawImage(cv, 0, 0);
+  return o.toDataURL('image/png');
+};
 window.ready = window.ready.then(async () => {
   const f = new FontFace('yg-jalnan', 'url(node_modules/@noonnu/yg-jalnan/fonts/yg-jalnan-normal.woff)'); await f.load(); document.fonts.add(f);
   return true;

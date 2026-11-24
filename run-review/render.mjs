@@ -44,7 +44,9 @@ if (args.includes('--cards')) {
     const u = await page.evaluate(i => { window.drawFeedCard(i); return document.getElementById('c').toDataURL('image/png'); }, i);
     fs.writeFileSync(path.join(dir, `card-${names[i]}.png`), Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
   }
-  console.log('카드 저장:', dir);
+  const wu = await page.evaluate(() => window.workoutImage());
+  fs.writeFileSync(path.join(OUT, 'workout-plan.png'), Buffer.from(wu.slice(wu.indexOf(',') + 1), 'base64'));
+  console.log('카드 저장:', dir, '+ out/workout-plan.png');
 } else if (args.includes('--cover')) {
   fs.writeFileSync(path.join(OUT, 'cover.png'), await grab(0));
   console.log('커버 저장:', path.join(OUT, 'cover.png'));
