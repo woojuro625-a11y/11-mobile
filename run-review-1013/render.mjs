@@ -37,7 +37,29 @@ await page.evaluate(() => window.ready);
 const grab = t => page.evaluate(t => { window.draw(t); return document.getElementById('c').toDataURL('image/png'); }, t)
   .then(u => Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
 
-if (args.includes('--brand-variants')) {
+if (args.includes('--loop8') || args.includes('--loop8-stills')) {
+  // 마지막 카드 5초 반복 영상. 시간은 루프 길이로 감싸서(모듈로) 샘플 → 이음매 없는 모션블러
+  const L = await page.evaluate(() => window.LOOP_DUR), FPS = 60, N = Math.round(L * FPS), SUB = 2;
+  const grabL = t => page.evaluate(t => { window.drawLoop8(t); return document.getElementById('c').toDataURL('image/png'); }, t)
+    .then(u => Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
+  if (args.includes('--loop8-stills')) {
+    const dir = path.join(OUT, 'stills'); fs.mkdirSync(dir, { recursive: true });
+    for (const t of args[args.indexOf('--loop8-stills') + 1].split(',').map(Number)) fs.writeFileSync(path.join(dir, `loop8-t${t.toFixed(2)}.png`), await grabL(t));
+    console.log('루프 스틸 저장');
+  } else {
+    const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS * SUB), '-i', '-',
+      '-vf', `tmix=frames=${SUB}:weights='1 1',select='not(mod(n+1\,${SUB}))',setpts=N/${FPS}/TB`,
+      '-r', String(FPS), '-c:v', 'libx264', '-preset', 'medium', '-crf', '12', '-pix_fmt', 'yuv444p', path.join(OUT, 'raw-loop8.mp4')], { stdio: ['pipe', 'inherit', 'inherit'] });
+    for (let i = 0; i < N * SUB; i++) {
+      const f = Math.floor(i / SUB), s = i % SUB;
+      const t = (((f + (s - (SUB - 1)) * 0.5 / SUB) / FPS) % L + L) % L;
+      const png = await grabL(t);
+      if (!ff.stdin.write(png)) await new Promise(r => ff.stdin.once('drain', r));
+    }
+    ff.stdin.end(); await new Promise(r => ff.on('close', r));
+    console.log('루프 영상 렌더 완료: out/raw-loop8.mp4');
+  }
+} else if (args.includes('--brand-variants')) {
   const dir = path.join(OUT, 'brand'); fs.mkdirSync(dir, { recursive: true });
   const names = await page.evaluate(() => window.FEED_CARDS);
   for (const v of ['A', 'B', 'C']) for (const i of [names.length - 1, 2]) {
