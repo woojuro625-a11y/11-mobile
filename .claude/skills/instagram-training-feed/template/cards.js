@@ -42,7 +42,9 @@ function drawLogo(cx, cy, s, o = {}) {
 /* '우주로 달리기' 로고타입 — 피드 톤(흰색 + 라임). window.BRAND_VARIANT: 'A' | 'B' | 'C'
  * lines: [['우주로', dx], ['달리기', dx]] (한 줄이면 [['우주로 달리기', 0]]) */
 const BRAND_FONT = '"yg-jalnan"';
-window.BRAND_VARIANT = 'A';
+window.BRAND_VARIANT = 'S';
+/* S(심플): 흰색 한 색, 장식 없음 — 서체만 바꿔 쓴다 */
+window.BRAND_SIMPLE_FONT = '"Do Hyeon"';
 function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3]], lh = .9) {
   const v = window.BRAND_VARIANT, one = lines.length === 1;
   ctx.save(); ctx.translate(cx, cy); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
@@ -54,7 +56,11 @@ function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3
     let px = x - (ws.reduce((a, c) => a + c, 0) + sp) / 2;
     ps.forEach(([p, col], k) => { fx(p, px + ws[k] / 2, y, col); px += ws[k] + sp; });
   };
-  if (v === 'A') {          // 프리텐다드 블랙 · 기울임 · 속도선
+  if (v === 'S') {          // 흰색 · 가운데 정렬 · 장식 없음
+    const lhS = one ? 0 : 1.0, y0 = -((lines.length - 1) * size * lhS) / 2 + size * .36;
+    ctx.font = `400 ${size}px ${window.BRAND_SIMPLE_FONT}`; ctx.fillStyle = C.white;
+    lines.forEach(([s], i) => ctx.fillText(s, 0, y0 + i * size * lhS));
+  } else if (v === 'A') {   // 프리텐다드 블랙 · 기울임 · 속도선
     ctx.transform(1, 0, -.16, 1, 0, 0);
     const lhA = one ? 0 : .98, y0 = -((lines.length - 1) * size * lhA) / 2 + size * .36;
     lines.forEach(([s, dx], i) => {
@@ -142,7 +148,7 @@ function cardFrame(n, title, sub, accent = C.lime) {
   line(72, 1232, W - 72, 1232, 1, { color: C.white, w: 1.5, alpha: .15 });
   pin(84, 1272, 11, C.white);
   txt('목동교 멀티스포츠존 · 2026.11.04', 106, 1283, { size: 24, weight: 700, alpha: .7 });
-  woojuroText(W - 72 - 92, 1272, 34, [['우주로 달리기', 0]]);
+  woojuroText(W - 72 - 88, 1272, 36, [['우주로 달리기', 0]]);
 }
 function stat(x, y, v, u, l, o = {}) {
   const size = o.size || 120;
@@ -277,7 +283,7 @@ const FEED_CARDS = [
       ctx.globalAlpha = .15 + rnd(i * 5.3) * .4; ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
     txt(`${TOTAL_SLIDES} / ${TOTAL_SLIDES}`, W - 72, 104, { size: 24, fam: MONO, weight: 700, align: 'right', alpha: .55 });
-    woojuroText(540, 560, 220);
+    woojuroText(540, 560, 250);
     // 유튜브 채널 (아이콘 + 한 줄)
     const yt = '유튜브 채널', ytw = 76 + 18 + measure(yt, 36, 800), yx = 540 - ytw / 2, yy = 900;
     rrect(yx, yy - 27, 76, 54, 14); ctx.fillStyle = '#FF2D2D'; ctx.fill();
@@ -290,7 +296,7 @@ const FEED_CARDS = [
     const ring = ctx.createLinearGradient(ax - 50, ay + 50, ax + 50, ay - 50);
     ring.addColorStop(0, '#FEDA75'); ring.addColorStop(.35, '#FA7E1E'); ring.addColorStop(.65, '#D62976'); ring.addColorStop(1, '#962FBF');
     circle(ax, ay, 52, { fill: ring }); circle(ax, ay, 46, { fill: '#121212' }); circle(ax, ay, 42, { fill: '#05070C' });
-    woojuroText(ax, ay, 28, [['우주로', -.15], ['달리기', .15]], .9);
+    woojuroText(ax, ay, 30, [['우주로', 0], ['달리기', 0]], .9);
     txt('우주로 달리기', ax + 76, ay + 12, { size: 34, weight: 900 });
     const bw = 190, bh = 68, bx = px + pw - bw - 34, by = ay - bh / 2;
     rrect(bx, by, bw, bh, 14); ctx.fillStyle = '#0095F6'; ctx.fill();
@@ -312,6 +318,7 @@ window.workoutImage = () => {
 };
 window.ready = window.ready.then(async () => {
   await document.fonts.load('400 100px "Black Han Sans"', '우주로 달리기');
+  await document.fonts.load(`400 100px ${window.BRAND_SIMPLE_FONT}`, '우주로 달리기');
   const f = new FontFace('yg-jalnan', 'url(node_modules/@noonnu/yg-jalnan/fonts/yg-jalnan-normal.woff)'); await f.load(); document.fonts.add(f);
   return true;
 });
