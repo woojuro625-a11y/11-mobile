@@ -1,6 +1,7 @@
 // 사용법:
 //   node render.mjs                     → 전체 렌더 (frames 파이프 → out/raw.mp4)
 //   node render.mjs --cover             → 커버 이미지 (out/cover.png)
+//   node render.mjs --cards             → 피드 캐러셀 카드 (out/cards/*.png)
 //   node render.mjs --stills 0.5,3.7    → 지정 시각의 스틸 PNG (out/stills/)
 import http from 'node:http';
 import fs from 'node:fs';
@@ -36,7 +37,15 @@ await page.evaluate(() => window.ready);
 const grab = t => page.evaluate(t => { window.draw(t); return document.getElementById('c').toDataURL('image/png'); }, t)
   .then(u => Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
 
-if (args.includes('--cover')) {
+if (args.includes('--cards')) {
+  const dir = path.join(OUT, 'cards'); fs.mkdirSync(dir, { recursive: true });
+  const names = await page.evaluate(() => window.FEED_CARDS);
+  for (let i = 0; i < names.length; i++) {
+    const u = await page.evaluate(i => { window.drawFeedCard(i); return document.getElementById('c').toDataURL('image/png'); }, i);
+    fs.writeFileSync(path.join(dir, `card-${names[i]}.png`), Buffer.from(u.slice(u.indexOf(',') + 1), 'base64'));
+  }
+  console.log('카드 저장:', dir);
+} else if (args.includes('--cover')) {
   fs.writeFileSync(path.join(OUT, 'cover.png'), await grab(0));
   console.log('커버 저장:', path.join(OUT, 'cover.png'));
 } else if (stillsIdx >= 0) {
