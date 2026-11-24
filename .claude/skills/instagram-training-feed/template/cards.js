@@ -211,7 +211,7 @@ const FEED_CARDS = [
       txt(r.d, cols[1], y, { size: 34, fam: NUM, weight: 400, alpha: .85 });
       txt(fmtPace(r.p), cols[2], y + 4, { size: 50, fam: NUM, weight: 400, color: last ? C.lime : C.white });
       circle(cols[3] + 16, y - 10, 16, { fill: C.lime }); check(cols[3] + 16, y - 10, 16, 1);
-      txt(`${fmtPace(r.lo)}–${fmtPace(r.hi)}`, cols[3] + 42, y, { size: 24, fam: MONO, weight: 700, alpha: .8 });
+      txt(`${fmtPace(r.lo)}~${fmtPace(r.hi)}`, cols[3] + 42, y, { size: 24, fam: MONO, weight: 700, alpha: .8 });
       txt(`${r.hr} / ${r.mx}`, cols[4], y, { size: 34, fam: NUM, weight: 400, color: C.white });
       const tot = r.z.reduce((a, c) => a + c, 0);
       txt(`${Math.round((r.z[3] + r.z[4]) / tot * 100)}%`, W - 72, y, { size: 34, fam: NUM, weight: 400, color: ZC[3], align: 'right' });
@@ -221,12 +221,12 @@ const FEED_CARDS = [
   // 4. 심박 변화 그래프
   ['04-hr-trend', () => {
     cardFrame(4, '심박 변화', '세션 전체 · 존 색상 (최대심박 186 기준)', C.coral);
-    const gx = 72, gy = 360, gw = W - 144, gh = 600, T = 3593, X = s => gx + gw * s / T;
+    const gx = 108, gy = 360, gw = W - 180, gh = 600, T = 3593, X = s => gx + gw * s / T;
     REPWIN.concat([FINALWIN]).forEach(([a, c], i) => {
       ctx.save(); ctx.globalAlpha = .1; ctx.fillStyle = C.white; ctx.fillRect(X(a), gy, X(c) - X(a), gh); ctx.restore();
       txt(i < 5 ? `${i + 1}세트` : '라스트', (X(a) + X(c)) / 2, gy + gh + 38, { size: 22, weight: 800, align: 'center', alpha: .75 });
     });
-    hrGraph(gx, gy, gw, gh, 0, T, 1, { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
+    hrGraph(gx, gy, gw, gh, 0, T, 1, { lo: 95, hi: 186, band: .13, zoneLabels: true, zoneLeft: true, lw: 4 });
     pauseMarks(X, gy, gh);
     drop(84, 1036, 9, C.sky);
     txt('그래프가 끊긴 곳 = 급수·완전 휴식 (시계 일시정지 · 모두 회복 조깅 중)', 104, 1044, { size: 24, weight: 700, color: C.sky });
@@ -278,7 +278,7 @@ const FEED_CARDS = [
     txt('m', W - 112, 1030, { size: 44, weight: 900, color: C.lime, align: 'right' });
     txt('520', W - 112 - mW - 6, 1030, { size: 130, fam: NUM, weight: 400, align: 'right' });
     txt('약', W - 112 - mW - 12 - measure('520', 130, 400, NUM) - 6, 1030, { size: 40, weight: 900, align: 'right' });
-    txt(`목표 ${fmtPace(215)}–${fmtPace(220)}보다 8초 빠르게 · 평균 심박 164`, 112, 1150, { size: 28, weight: 800, alpha: .8 });
+    txt(`목표 ${fmtPace(215)}~${fmtPace(220)}보다 8초 빠르게 · 평균 심박 164`, 112, 1150, { size: 28, weight: 800, alpha: .8 });
   }],
   // 7. 러닝 다이내믹스 & 훈련 효과
   ['07-dynamics', () => {

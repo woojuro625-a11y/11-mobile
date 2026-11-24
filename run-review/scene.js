@@ -295,7 +295,7 @@ function hrGraph(x, y, w, h, t0s, t1s, u, o = {}) {
   for (let i = 0; i < 5; i++) {
     const a = Math.max(ZB[i], lo), c = Math.min(ZB[i + 1], hi); if (c <= a) continue;
     ctx.save(); ctx.globalAlpha = (o.band == null ? .1 : o.band); ctx.fillStyle = ZC[i]; ctx.fillRect(x, Y(c), w, Y(a) - Y(c)); ctx.restore();
-    if (o.zoneLabels) txt(`Z${i + 1}`, x + w - 6, Y(c) + 24, { size: 20, fam: MONO, weight: 700, color: ZC[i], align: 'right', alpha: .8 });
+    if (o.zoneLabels) { const lx = o.zoneLeft ? x - 8 : x + w - 6; txt(`Z${i + 1}`, lx, Y(c) + 24, { size: 20, fam: MONO, weight: 700, color: ZC[i], align: 'right', alpha: .8 }); }
   }
   const pts = SERIES.filter(p => p[0] >= t0s && p[0] <= t1s);
   const n = Math.floor(pts.length * u); if (n < 2) return null;
