@@ -39,6 +39,23 @@ function drawLogo(cx, cy, s, o = {}) {
   ctx.restore();
 }
 
+/* '우주로 달리기' 채널 로고 스타일 텍스트: 굵은 한글 + 노랑→주황 그라데이션 + 검은 외곽선/그림자 + 기울임
+ * lines: [['우주로', dx], ['달리기', dx]] 처럼 줄마다 가로 오프셋 */
+const BRAND_FONT = '"Black Han Sans"';
+function woojuroText(cx, cy, size, lines = [['우주로', -.32], ['달리기', .32]], lh = .98) {
+  ctx.save(); ctx.translate(cx, cy); ctx.transform(1, 0, -.14, 1, 0, 0);
+  ctx.font = `400 ${size}px ${BRAND_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+  const n = lines.length, y0 = -((n - 1) * size * lh) / 2 + size * .36;
+  lines.forEach(([s, dx], i) => {
+    const x = dx * size, y = y0 + i * size * lh;
+    ctx.fillStyle = '#000'; ctx.fillText(s, x + size * .05, y + size * .07);               // 그림자
+    ctx.strokeStyle = '#111'; ctx.lineWidth = size * .14; ctx.strokeText(s, x, y);           // 외곽선
+    const g = ctx.createLinearGradient(0, y - size * .78, 0, y + size * .02);
+    g.addColorStop(0, '#FFF34A'); g.addColorStop(.5, '#FFC21A'); g.addColorStop(1, '#FF7A00');
+    ctx.fillStyle = g; ctx.fillText(s, x, y);
+  });
+  ctx.restore();
+}
 function cardFrame(n, title, sub, accent = C.lime) {
   bgFill(C.bg, .1, 900, 160);
   titleBadge(99, C.white, false);
@@ -48,8 +65,7 @@ function cardFrame(n, title, sub, accent = C.lime) {
   line(72, 1232, W - 72, 1232, 1, { color: C.white, w: 1.5, alpha: .15 });
   pin(84, 1272, 11, C.white);
   txt('목동교 멀티스포츠존 · 2026.11.04', 106, 1283, { size: 24, weight: 700, alpha: .7 });
-  drawLogo(W - 250, 1272, .1, { glow: 10 });
-  txt('우주로 달리기', W - 72, 1283, { size: 26, weight: 900, color: C.lime, align: 'right' });
+  woojuroText(W - 72 - 92, 1272, 34, [['우주로 달리기', 0]]);
 }
 function stat(x, y, v, u, l, o = {}) {
   const size = o.size || 120;
@@ -102,9 +118,12 @@ const FEED_CARDS = [
       txt(i < 5 ? `${i + 1}세트` : '라스트', (X(a) + X(c)) / 2, gy + gh + 38, { size: 22, weight: 800, align: 'center', alpha: .75 });
     });
     hrGraph(gx, gy, gw, gh, 0, T, 1, { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
-    txt('세트별 최대 심박', 72, 1080, { size: 26, weight: 800, alpha: .6 });
-    REPMAX.forEach((m, i) => { const x = 72 + i * 190; rrect(x, 1100, 172, 70, 16); ctx.strokeStyle = 'rgba(255,90,95,.6)'; ctx.lineWidth = 2; ctx.stroke();
-      txt(String(m), x + 70, 1150, { size: 44, fam: NUM, weight: 400, align: 'center' }); txt(`${i + 1}세트`, x + 132, 1146, { size: 18, weight: 800, color: C.coral, align: 'center' }); });
+    pauseMarks(X, gy, gh);
+    drop(84, 1036, 9, C.sky);
+    txt('그래프가 끊긴 곳 = 급수·완전 휴식 (시계 일시정지, 모두 회복 조깅 중)', 104, 1044, { size: 24, weight: 700, color: C.sky });
+    txt('세트별 최대 심박', 72, 1094, { size: 24, weight: 800, alpha: .6 });
+    REPMAX.forEach((m, i) => { const x = 72 + i * 190; rrect(x, 1112, 172, 70, 16); ctx.strokeStyle = 'rgba(255,90,95,.6)'; ctx.lineWidth = 2; ctx.stroke();
+      txt(String(m), x + 70, 1162, { size: 44, fam: NUM, weight: 400, align: 'center' }); txt(`${i + 1}세트`, x + 132, 1158, { size: 18, weight: 800, color: C.coral, align: 'center' }); });
   }],
   // 5. 심박존 분석
   ['05-hr-zones', () => {
@@ -170,24 +189,31 @@ const FEED_CARDS = [
     txt('크게 향상', 580, 1112, { size: 40, weight: 900, color: C.lime });
     txt('젖산역치 부근 지속 훈련', 580, 1158, { size: 24, weight: 700, alpha: .6 });
   }],
-  // 8. 우주로 달리기
+  // 8. 우주로 달리기 — 채널 홍보 카드
   ['08-woojuro', () => {
-    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#04060B'); g.addColorStop(1, '#0B0D10');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    const gl = ctx.createRadialGradient(540, 520, 0, 540, 520, 700); gl.addColorStop(0, 'rgba(212,255,58,.16)'); gl.addColorStop(1, 'rgba(212,255,58,0)');
+    ctx.fillStyle = '#07080B'; ctx.fillRect(0, 0, W, H);
+    const gl = ctx.createRadialGradient(540, 600, 0, 540, 600, 640); gl.addColorStop(0, 'rgba(255,170,20,.16)'); gl.addColorStop(1, 'rgba(255,170,20,0)');
     ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
-    for (let i = 0; i < 160; i++) { const x = rnd(i * 3.1) * W, y = rnd(i * 7.7) * H, r = .6 + rnd(i * 1.9) * 1.8;
-      ctx.globalAlpha = .25 + rnd(i * 5.3) * .6; ctx.fillStyle = i % 11 === 0 ? C.lime : C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+    for (let i = 0; i < 90; i++) { const x = rnd(i * 3.1) * W, y = rnd(i * 7.7) * H, r = .5 + rnd(i * 1.9) * 1.4;
+      ctx.globalAlpha = .15 + rnd(i * 5.3) * .4; ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
     txt(`${TOTAL_SLIDES} / ${TOTAL_SLIDES}`, W - 72, 104, { size: 24, fam: MONO, weight: 700, align: 'right', alpha: .55 });
-    drawLogo(540, 500, 1.35);
-    txt('우주로', 540, 900, { size: 150, weight: 900, align: 'center' });
-    txt('달리기', 540, 1060, { size: 150, weight: 900, color: C.lime, align: 'center' });
-    txt('매 훈련을 데이터로 기록하고 나눕니다', 540, 1140, { size: 34, weight: 700, align: 'center', alpha: .8 });
-    const tags = ['인터벌', '트랙 훈련', '훈련 기록']; let tw = tags.reduce((a, s) => a + measure(s, 26, 800) + 26 * 1.3 + 16, -16), x = 540 - tw / 2;
-    tags.forEach(s => { const w = pill(x, 1220, s, { size: 26, color: C.lime, text: C.lime }); x += w + 16; });
-    txt('다음 훈련도 같이 달려요', 540, 1300, { size: 24, weight: 700, align: 'center', alpha: .5 });
+    woojuroText(540, 560, 220);
+    txt('훈련 데이터를 재밌고, 정확하게', 540, 860, { size: 44, weight: 900, align: 'center' });
+    txt('분석해서 업로드합니다', 540, 920, { size: 44, weight: 900, align: 'center' });
+    // 유튜브 채널 홍보
+    const yw = 640, yx = 540 - yw / 2, yy = 990;
+    rrect(yx, yy, yw, 110, 28); ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 2; ctx.stroke();
+    rrect(yx + 34, yy + 28, 76, 54, 14); ctx.fillStyle = '#FF2D2D'; ctx.fill();
+    ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(yx + 64, yy + 41); ctx.lineTo(yx + 88, yy + 55); ctx.lineTo(yx + 64, yy + 69); ctx.closePath(); ctx.fill();
+    txt('유튜브 채널 운영 중', yx + 136, yy + 48, { size: 24, weight: 700, alpha: .65 });
+    txt('레이스 요약 영상도 올려요', yx + 136, yy + 86, { size: 32, weight: 900 });
+    // 팔로우 요청
+    const fw = measure('팔로우하고 다음 훈련도 같이 봐요', 34, 900) + 80;
+    rrect(540 - fw / 2, 1150, fw, 76, 38); ctx.fillStyle = '#FFC21A'; ctx.fill();
+    txt('팔로우하고 다음 훈련도 같이 봐요', 540, 1200, { size: 34, weight: 900, color: '#111', align: 'center' });
   }],
 ];
 window.FEED_CARDS = FEED_CARDS.map(c => c[0]);
+window.ready = window.ready.then(async () => { await document.fonts.load(`400 100px ${BRAND_FONT}`, '우주로 달리기'); return true; });
 window.drawFeedCard = i => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; FEED_CARDS[i][1](); };

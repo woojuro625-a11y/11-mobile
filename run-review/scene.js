@@ -30,6 +30,8 @@ const REPS = [
 const FINAL = { pace: 206.9, dist: 518, lo: 215, hi: 220, hr: 164 };
 const RECS = [344.0, 370.9, 374.9, 386.5, 390.1];
 const RECAVG = { dist: 520, pace: 372.4, hr: 138 }; // 회복 조깅 5회 평균 (거리 519.6m)
+// 시계 일시정지 구간 = 급수·완전 휴식 [시작 경과초, 길이초] — 심박 그래프가 끊긴 곳
+const PAUSES = [[1233, 24], [1936, 10], [2612, 40], [3228, 78], [3394, 17]];
 // 심박존 (최대심박 186 기준, Garmin 설정값) · 존별 체류 시간(초) [Z1..Z5]
 const ZB = [117, 131, 144, 158, 172, 186];
 const ZC = ['#7C8A9C', '#5CC8FF', '#3DDC84', '#FFB020', '#FF5A5F'];
@@ -301,11 +303,29 @@ function hrGraph(x, y, w, h, t0s, t1s, u, o = {}) {
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = o.lw || 4;
   if (o.glow) { ctx.shadowColor = 'rgba(255,255,255,.35)'; ctx.shadowBlur = 10; }
   for (let i = 1; i < n; i++) {
-    const a = pts[i - 1], c = pts[i]; if (c[0] - a[0] > 30) continue;
+    const a = pts[i - 1], c = pts[i]; if (c[0] - a[0] > 8) continue;
     ctx.strokeStyle = ZC[zoneOf(c[2])]; ctx.beginPath(); ctx.moveTo(X(a[0]), Y(a[2])); ctx.lineTo(X(c[0]), Y(c[2])); ctx.stroke();
   }
   ctx.restore();
   const last = pts[n - 1]; return [X(last[0]), Y(last[2]), last];
+}
+/* 물방울 아이콘 */
+function drop(x, y, r, col) {
+  ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, y - r * 1.5);
+  ctx.bezierCurveTo(x + r * .2, y - r * .9, x + r, y - r * .3, x + r, y + r * .15); ctx.arc(x, y + r * .15, r, 0, Math.PI); ctx.bezierCurveTo(x - r, y - r * .3, x - r * .2, y - r * .9, x, y - r * 1.5);
+  ctx.fill(); ctx.restore();
+}
+/* 그래프 위 급수·휴식 표시: X(경과초) 함수, 그래프 영역, 표시할 최대 경과초 */
+function pauseMarks(X, gy, gh, upTo = 1e9, a = 1) {
+  let px = -1e9, lv = 0;
+  PAUSES.forEach(([s0, d]) => {
+    if (s0 > upTo) return;
+    const x = X(s0 + d / 2);
+    lv = x - px < 60 ? lv + 1 : 0; px = x; const oy = lv * 56; // 가까운 마커는 아래로 엇갈리게
+    line(x, gy + 66 + oy, x, gy + gh, 1, { color: C.sky, w: 2, alpha: .55 * a, dash: [5, 6] });
+    ctx.save(); ctx.globalAlpha *= a; drop(x, gy + 22 + oy, 10, C.sky); ctx.restore();
+    txt(`${d}초`, x, gy + 58 + oy, { size: 18, fam: MONO, weight: 700, color: C.sky, align: 'center', alpha: a });
+  });
 }
 function zoneOf(hr) { for (let i = 4; i >= 0; i--) if (hr >= ZB[i]) return i; return 0; }
 const fmtDur = s => { s = Math.round(s); return `${Math.floor(s / 60)}:${pad2(s % 60)}`; };
@@ -491,20 +511,23 @@ function sChart(t, base) {
   });
   const head = hrGraph(gx, gy, gw, gh, 0, T, E.ioC(P(t, t0 + .1, bt(3))), { lo: 95, hi: 186, band: .13, zoneLabels: true, lw: 4 });
   if (head) {
+    pauseMarks(X, gy, gh, head[2][0]);
     line(head[0], gy, head[0], gy + gh, 1, { color: C.white, w: 1.5, alpha: .4 });
     circle(head[0], head[1], 9, { fill: ZC[zoneOf(head[2][2])] });
     txt(`${Math.round(head[2][2])} bpm`, Math.min(head[0] + 14, gx + gw - 150), head[1] - 16, { size: 28, fam: NUM, weight: 400 });
   }
   maskText('세트마다 최대 심박 160 → 164 → 168 → 172 → 177', 72, 1200, { size: 30, weight: 800, color: C.white }, 1 - E.outX(P(t, bt(2), bt(2) + .3)));
-  maskText('회복 조깅에서 매번 130대로 내려왔다', 72, 1244, { size: 26, weight: 700, color: C.white, alpha: .6 }, 1 - E.outX(P(t, bt(3), bt(3) + .3)));
+  const lg = E.outX(P(t, bt(3), bt(3) + .3));
+  ctx.save(); ctx.globalAlpha = lg; drop(84, 1236, 9, C.sky); ctx.restore();
+  maskText('그래프가 끊긴 곳 = 급수·완전 휴식 (시계 일시정지)', 104, 1244, { size: 26, weight: 700, color: C.sky }, 1 - lg);
 }
 
 // S4-B: 라스트 스퍼트
 function sFinal(t) {
   const t0 = b(56);
   const z = E.inX(P(t, b(63) - .05, b(64)));
-  bgFill(C.bg, .2 + .2 * pulse(t, 6), 540, 640);
-  speedLines(t, 1, 80);
+  bgFill(C.bg, .06 + .06 * pulse(t, 6), 540, 640);
+  speedLines(t, .8, 70);
   ctx.save(); ctx.translate(540, 640); ctx.scale(1 + z * 3, 1 + z * 3); ctx.translate(-540, -640);
   sectionLabel('마지막 스텝', '02', t0, t);
   maskText('라스트', 72, 330, { size: 110, weight: 900, color: C.white }, 1 - E.outX(P(t, t0, t0 + .3)));
@@ -526,7 +549,7 @@ function sFinal(t) {
     const sc = lerp(1.5, 1, su); const s = fmtPace(FINAL.pace);
     for (let e = 3; e >= 0; e--) {
       ctx.save(); ctx.translate(72 - e * 34 * (1 - su * .4), 820); ctx.scale(sc, sc);
-      txt(s, 0, 0, { size: 320, fam: NUM, weight: 400, color: e ? C.lime : C.white, alpha: e ? (.16 / e) * su : su }); ctx.restore();
+      txt(s, 0, 0, { size: 320, fam: NUM, weight: 400, color: e ? '#6B7480' : C.white, alpha: e ? (.13 / e) * su : su }); ctx.restore();
     }
   }
   maskText(`목표 ${fmtPace(215)}보다 8초 더 빠르게`, 72, 910, { size: 42, weight: 800, color: C.white }, 1 - E.outX(P(t, b(60), b(60) + .3)));
@@ -710,17 +733,28 @@ function sOutro(t) {
   if (t < endT) {
     bgFill(C.bg, .1, 540, 900);
     const wl = 1 - E.outX(P(t, t0, t0 + .35)); if (wl > 0) { ctx.fillStyle = C.lime; ctx.fillRect(W * (1 - wl), 0, W * wl, H); }
-    track({ x: 540, y: 1120, s: 4.6, tilt: .5 }, { fill: C.track, infield: C.bg, runner: lerp(0, 400, E.ioC(P(t, t0, endT))), trail: 160, alpha: .45 });
+    track({ x: 540, y: 1150, s: 4.2, tilt: .45 }, { fill: C.track, infield: C.bg, runner: lerp(0, 400, E.ioC(P(t, t0, endT))), trail: 160, alpha: .45 });
     sectionLabel('정리', '10', t0, t);
-    maskText('이 훈련은', 72, 320, { size: 96, weight: 900, color: C.white }, 1 - E.outX(P(t, b(97), b(97) + .35)));
+    maskText('이 훈련은', 72, 280, { size: 64, weight: 900, color: C.white }, 1 - E.outX(P(t, b(96) + .2, b(96) + .5)));
+    // 핵심: 빌드업 롱 인터벌
+    const hu = E.outX(P(t, b(97), b(97) + .3));
+    if (hu > 0) {
+      const hs = lerp(1.35, 1, hu), hw = measure('빌드업 롱 인터벌', 108, 900);
+      ctx.save(); ctx.translate(72, 410); ctx.scale(hs, hs); ctx.globalAlpha *= P(t, b(97), b(97) + .06);
+      rrect(-14, -96, (hw + 28) * E.outX(P(t, b(97), b(97) + .22)), 124, 16); ctx.fillStyle = C.lime; ctx.fill();
+      txt('빌드업 롱 인터벌', 0, 0, { size: 108, weight: 900, color: C.bg });
+      ctx.restore();
+      line(72, 470, 72 + 60 * hu, 470, 1, { color: C.lime, w: 4 });
+      maskText('2000m를 반복할수록 더 빠르게 — 4\'05" → 3\'46"', 150, 482, { size: 30, weight: 800, color: C.lime }, 1 - E.outX(P(t, b(97) + .3, b(97) + .6)));
+    }
     const pts = [
       ['목적', '젖산역치(LT) 향상과', '레이스 페이스 지속력 강화'],
-      ['방식', '2000m × 5를 세트마다 3~6초씩 빠르게,', '사이사이 회복 조깅'],
+      ['방식', '2000m × 5 빌드업: 세트마다 3~6초씩 단축,', '사이사이 약 520m 회복 조깅'],
       ['결과', `${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)}, 마지막 ${fmtPace(FINAL.pace)}까지 가속`, '본훈련 64%를 역치(Z4)에서 소화'],
     ];
     pts.forEach(([h, l1, l2], i) => {
       const tb = b(98 + i * 2); const u = E.outX(P(t, tb, tb + .35));
-      const y = 470 + i * 190;
+      const y = 580 + i * 170;
       ctx.save(); ctx.globalAlpha = u; ctx.translate((1 - u) * 50, 0);
       txt(`0${i + 1}`, 72, y, { size: 26, fam: MONO, weight: 700, color: C.lime });
       txt(h, 130, y, { size: 30, weight: 900, color: C.lime });
