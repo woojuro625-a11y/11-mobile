@@ -123,7 +123,7 @@ function drawWorkoutPlan(x, y, w) {
   const bw = w - gap * (WORKOUT.steps.length - 1);
   let cx = x; const by = y + 78, bh = 54;
   // 헤더 오른쪽: 빌드업 규칙
-  const rule = '목표 페이스 세트마다 -5초', rw = measure(rule, 24, 900) + 36;
+  const rule = '목표 범위 세트마다 -5초', rw = measure(rule, 24, 900) + 36;
   rrect(x + w - rw, y - 30, rw, 40, 20); ctx.fillStyle = C.lime; ctx.fill();
   txt(rule, x + w - rw / 2, y - 2, { size: 24, weight: 900, color: C.bg, align: 'center' });
   const runCenters = [];
@@ -135,8 +135,12 @@ function drawWorkoutPlan(x, y, w) {
     if (st.run) {
       n++; runCenters.push([cx + sw / 2, st.lo]);
       txt(st.dist === 1000 ? '1km' : `2km`, cx + sw / 2, by + 36, { size: 24, fam: NUM, weight: 400, color: C.bg, align: 'center' });
-      txt(`${fmtPace(st.lo)}`, cx + sw / 2, by + bh + 28, { size: 19, fam: MONO, weight: 700, align: 'center', alpha: .85 });
-      txt(`~${fmtPace(st.hi)}`, cx + sw / 2, by + bh + 50, { size: 19, fam: MONO, weight: 700, align: 'center', alpha: .55 });
+      // 목표는 '범위' — 하한·상한을 같은 밝기로 묶어서 표시
+      const rng = `${fmtPace(st.lo)}~${fmtPace(st.hi)}`, col = st.dist === 1000 ? C.lime : ZC[3];
+      line(cx + 4, by + bh + 8, cx + sw - 4, by + bh + 8, 1, { color: col, w: 2, alpha: .8 });
+      line(cx + 4, by + bh + 2, cx + 4, by + bh + 8, 1, { color: col, w: 2, alpha: .8 }); line(cx + sw - 4, by + bh + 2, cx + sw - 4, by + bh + 8, 1, { color: col, w: 2, alpha: .8 });
+      if (measure(rng, 18, 700, MONO) <= sw - 4) txt(rng, cx + sw / 2, by + bh + 36, { size: 18, fam: MONO, weight: 700, align: 'center', color: C.white });
+      else { txt(`${fmtPace(st.lo)}~`, cx + sw / 2, by + bh + 34, { size: 18, fam: MONO, weight: 700, align: 'center', color: C.white }); txt(fmtPace(st.hi), cx + sw / 2, by + bh + 56, { size: 18, fam: MONO, weight: 700, align: 'center', color: C.white }); }
     }
     cx += sw + gap;
   });
@@ -153,8 +157,8 @@ function drawWorkoutPlan(x, y, w) {
   // 범례
   const ly = by + bh + 92;
   rrect(x, ly - 18, 22, 22, 5); ctx.fillStyle = ZC[3]; ctx.fill();
-  txt('질주 · 목표 페이스', x + 32, ly, { size: 22, weight: 700, alpha: .75 });
-  const lx2 = x + 32 + measure('질주 · 목표 페이스', 22, 700) + 30;
+  txt('질주 · 목표 페이스 범위', x + 32, ly, { size: 22, weight: 700, alpha: .75 });
+  const lx2 = x + 32 + measure('질주 · 목표 페이스 범위', 22, 700) + 30;
   rrect(lx2, ly - 18, 22, 22, 5); ctx.fillStyle = 'rgba(92,200,255,.55)'; ctx.fill();
   txt(`회복 · 랩 버튼까지 ${fmtPace(300)}~${fmtPace(390)}`, lx2 + 32, ly, { size: 22, weight: 700, alpha: .75 });
 }
