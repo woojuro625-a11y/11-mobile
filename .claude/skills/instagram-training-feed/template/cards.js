@@ -185,8 +185,9 @@ const FEED_CARDS = [
   // 2. 세션 요약
   ['02-session-summary', () => {
     cardFrame(2, '세션 요약', '2026.11.04 수요일 · 기온 18°C');
-    const cells = [['13.12', 'km', '총 거리'], ['57:05', '', '운동 시간'], [fmtPace(261.1), '', '평균 페이스'], ['154', 'bpm', '평균 심박'], ['177', 'bpm', '최대 심박'], ['809', 'kcal', '소모 칼로리']];
-    cells.forEach(([v, u, l], i) => stat(72 + (i % 2) * 480, 440 + Math.floor(i / 2) * 170, v, u, l, { size: 110, uc: i === 3 || i === 4 ? C.coral : C.lime }));
+    // 줄 구성: 거리·시간 / 페이스·칼로리 / 평균 심박·최대 심박
+    const cells = [['13.12', 'km', '총 거리'], ['57:05', '', '운동 시간'], [fmtPace(261.1), '', '평균 페이스'], ['809', 'kcal', '소모 칼로리'], ['154', 'bpm', '평균 심박'], ['177', 'bpm', '최대 심박']];
+    cells.forEach(([v, u, l], i) => stat(72 + (i % 2) * 480, 440 + Math.floor(i / 2) * 170, v, u, l, { size: 110, uc: u === 'bpm' ? C.coral : C.lime }));
     panel(72, 880, W - 144, 310);
     txt('본훈련', 112, 950, { size: 40, weight: 900, color: C.lime });
     txt('2000m × 5 + 마지막 스텝', 112 + measure('본훈련', 40, 900) + 18, 948, { size: 26, weight: 700, alpha: .65 });
