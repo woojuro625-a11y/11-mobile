@@ -39,19 +39,22 @@ function drawLogo(cx, cy, s, o = {}) {
   ctx.restore();
 }
 
-/* '우주로 달리기' 채널 로고 스타일 텍스트: 굵은 한글 + 노랑→주황 그라데이션 + 검은 외곽선/그림자 + 기울임
- * lines: [['우주로', dx], ['달리기', dx]] 처럼 줄마다 가로 오프셋 */
-const BRAND_FONT = '"Black Han Sans"';
-function woojuroText(cx, cy, size, lines = [['우주로', -.32], ['달리기', .32]], lh = .98) {
-  ctx.save(); ctx.translate(cx, cy); ctx.transform(1, 0, -.14, 1, 0, 0);
+/* '우주로 달리기' 채널 로고 스타일: 여기어때 잘난체 + 노란 글자 + 빨강·주황 입체 그림자(오른쪽 아래) + 기울임
+ * lines: [['우주로', dx], ['달리기', dx]] 줄마다 가로 오프셋(글자 크기 비율), lh: 줄 간격 비율 */
+const BRAND_FONT = '"yg-jalnan"';
+function woojuroText(cx, cy, size, lines = [['우주로', -.3], ['달리기', .3]], lh = .9) {
+  ctx.save(); ctx.translate(cx, cy); ctx.transform(1, 0, -.12, 1, 0, 0);
   ctx.font = `400 ${size}px ${BRAND_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
-  const n = lines.length, y0 = -((n - 1) * size * lh) / 2 + size * .36;
+  const n = lines.length, y0 = -((n - 1) * size * lh) / 2 + size * .36, depth = Math.max(2, Math.round(size * .07));
   lines.forEach(([s, dx], i) => {
     const x = dx * size, y = y0 + i * size * lh;
-    ctx.fillStyle = '#000'; ctx.fillText(s, x + size * .05, y + size * .07);               // 그림자
-    ctx.strokeStyle = '#111'; ctx.lineWidth = size * .14; ctx.strokeText(s, x, y);           // 외곽선
-    const g = ctx.createLinearGradient(0, y - size * .78, 0, y + size * .02);
-    g.addColorStop(0, '#FFF34A'); g.addColorStop(.5, '#FFC21A'); g.addColorStop(1, '#FF7A00');
+    ctx.strokeStyle = '#120400'; ctx.lineWidth = size * .07;                       // 바깥 어두운 테두리
+    ctx.strokeText(s, x + depth, y + depth);
+    for (let k = depth; k >= 1; k--) {                                              // 입체 그림자
+      ctx.fillStyle = k > depth * .5 ? '#B8180C' : '#E8401C'; ctx.fillText(s, x + k, y + k);
+    }
+    const g = ctx.createLinearGradient(0, y - size * .75, 0, y);
+    g.addColorStop(0, '#FFF25A'); g.addColorStop(1, '#FFC800');
     ctx.fillStyle = g; ctx.fillText(s, x, y);
   });
   ctx.restore();
@@ -198,25 +201,32 @@ const FEED_CARDS = [
       ctx.globalAlpha = .15 + rnd(i * 5.3) * .4; ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
     txt(`${TOTAL_SLIDES} / ${TOTAL_SLIDES}`, W - 72, 104, { size: 24, fam: MONO, weight: 700, align: 'right', alpha: .55 });
-    woojuroText(540, 600, 230);
-    // 유튜브 채널 표시 (아이콘 + 한 줄)
-    const yt = '유튜브 채널 운영 중', ytw = 76 + 18 + measure(yt, 34, 800), yx = 540 - ytw / 2, yy = 930;
+    woojuroText(540, 560, 220);
+    // 유튜브 채널 (아이콘 + 한 줄)
+    const yt = '유튜브 채널', ytw = 76 + 18 + measure(yt, 36, 800), yx = 540 - ytw / 2, yy = 900;
     rrect(yx, yy - 27, 76, 54, 14); ctx.fillStyle = '#FF2D2D'; ctx.fill();
     ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(yx + 30, yy - 14); ctx.lineTo(yx + 54, yy); ctx.lineTo(yx + 30, yy + 14); ctx.closePath(); ctx.fill();
-    txt(yt, yx + 94, yy + 12, { size: 34, weight: 800, alpha: .9 });
-    // 팔로우 유도 그래픽: [사람+ 아이콘 | 팔로우] 버튼 + 누르는 손가락 커서
-    const bw = 340, bx = 540 - bw / 2, by = 1060;
-    rrect(bx, by, bw, 96, 48); ctx.fillStyle = '#FFC21A'; ctx.fill();
-    const ix = bx + 70, iy = by + 48;
-    ctx.fillStyle = '#111'; circle(ix - 6, iy - 14, 13, { fill: '#111' });
-    ctx.beginPath(); ctx.ellipse(ix - 6, iy + 20, 24, 15, 0, Math.PI, 0); ctx.fill();
-    line(ix + 24, iy - 2, ix + 44, iy - 2, 1, { color: '#111', w: 6, cap: 'round' }); line(ix + 34, iy - 12, ix + 34, iy + 8, 1, { color: '#111', w: 6, cap: 'round' });
-    txt('팔로우', bx + 200, by + 63, { size: 42, weight: 900, color: '#111', align: 'center' });
-    // 탭 표시 (손가락 대신 터치 원)
-    const tx = bx + bw - 40, ty = by + 84;
-    circle(tx, ty, 34, { stroke: C.white, w: 3, alpha: .35 }); circle(tx, ty, 20, { stroke: C.white, w: 3, alpha: .6 }); circle(tx, ty, 9, { fill: C.white });
+    txt(yt, yx + 94, yy + 13, { size: 36, weight: 800 });
+    // 인스타그램 프로필 행처럼: 그라데이션 링 아바타 + 이름 + 파란 팔로우 버튼
+    const px = 150, py = 1010, pw = W - 300, ph = 150;
+    rrect(px, py, pw, ph, 28); ctx.fillStyle = '#121212'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 2; ctx.stroke();
+    const ax = px + 86, ay = py + ph / 2;
+    const ring = ctx.createLinearGradient(ax - 50, ay + 50, ax + 50, ay - 50);
+    ring.addColorStop(0, '#FEDA75'); ring.addColorStop(.35, '#FA7E1E'); ring.addColorStop(.65, '#D62976'); ring.addColorStop(1, '#962FBF');
+    circle(ax, ay, 52, { fill: ring }); circle(ax, ay, 46, { fill: '#121212' }); circle(ax, ay, 42, { fill: '#05070C' });
+    woojuroText(ax, ay, 26, [['우주로', -.25], ['달리기', .25]], .9);
+    txt('우주로 달리기', ax + 76, ay + 12, { size: 34, weight: 900 });
+    const bw = 190, bh = 68, bx = px + pw - bw - 34, by = ay - bh / 2;
+    rrect(bx, by, bw, bh, 14); ctx.fillStyle = '#0095F6'; ctx.fill();
+    txt('팔로우', bx + bw / 2, by + 46, { size: 32, weight: 800, color: '#FFFFFF', align: 'center' });
+    // 탭 표시
+    const tx = bx + bw - 8, ty = by + bh + 6;
+    circle(tx, ty, 30, { stroke: C.white, w: 3, alpha: .35 }); circle(tx, ty, 17, { stroke: C.white, w: 3, alpha: .6 }); circle(tx, ty, 8, { fill: C.white });
   }],
 ];
 window.FEED_CARDS = FEED_CARDS.map(c => c[0]);
-window.ready = window.ready.then(async () => { await document.fonts.load(`400 100px ${BRAND_FONT}`, '우주로 달리기'); return true; });
+window.ready = window.ready.then(async () => {
+  const f = new FontFace('yg-jalnan', 'url(node_modules/@noonnu/yg-jalnan/fonts/yg-jalnan-normal.woff)'); await f.load(); document.fonts.add(f);
+  return true;
+});
 window.drawFeedCard = i => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; FEED_CARDS[i][1](); };
