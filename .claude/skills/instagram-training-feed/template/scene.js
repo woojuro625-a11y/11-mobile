@@ -3,7 +3,7 @@
  * 곡: Riverside Stride (≈123 BPM). 모든 전환은 beats.json의 실제 비트 타임에 맞춘다.
  * draw(t) 하나로 결정론적 렌더. t < 0.1 구간은 커버 이미지 그대로.
  */
-const W = 1080, H = 1350, FPS = 60, DUR = 54.0;
+const W = 1080, H = 1350, FPS = 60; let DUR = 54.0; // timeline.json의 dur(곡 길이)로 덮어씀
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 
@@ -55,7 +55,9 @@ const REPWIN = [[0, 725], [948, 1653], [1900, 2592]];
 const FINALWIN = [2877, 3323];
 const SESSION_T = 3327;
 const HRREC = []; // 세트 후 심박 회복 장면은 쓰지 않음
-let B = [];        // 비트 타임
+let B = [];        // 논리 비트 시각 (장면 설계 단위, b(i))
+let SB = [];       // 곡의 실제 비트 시각 (beats.json)
+let ANCH = null;   // timeline.json anchors: [논리 비트, 곡 비트 인덱스]
 let SERIES = [];   // [t, speed, hr, dist]
 
 /* ---------------- 유틸 ---------------- */
@@ -75,9 +77,19 @@ function spring(dt, f = 2.4, z = 7) { if (dt <= 0) return 0; return 1 - Math.exp
 function rnd(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 const pad2 = n => String(n).padStart(2, '0');
 function fmtPace(s) { const r = Math.round(s); return `${Math.floor(r / 60)}'${pad2(r % 60)}"`; }
+// 논리 비트 → 시각. timeline.json이 있으면 구간별 선형 보간으로 곡 비트에 맞춘다(없으면 곡 비트 그대로)
+function sbTime(x) { const j = Math.floor(x), f = x - j, n = SB.length - 1; const a = SB[clamp(j, 0, n)], c = SB[clamp(j + 1, 0, n)]; return a + (c - a) * f; }
+function logicalTime(i) {
+  if (!ANCH) return sbTime(i);
+  let k = 0; while (k < ANCH.length - 2 && i > ANCH[k + 1][0]) k++;
+  const [l0, s0] = ANCH[k], [l1, s1] = ANCH[k + 1];
+  return sbTime(s0 + (i - l0) * (s1 - s0) / (l1 - l0));
+}
 const b = i => B[Math.min(i, B.length - 1)];
 function lastBeat(t) { let lo = 0, hi = B.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (B[m] <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r; }
-function pulse(t, k = 9, from = 0, to = 99) { const i = lastBeat(t); if (i < from || i > to) return 0; return Math.exp(-(t - B[i]) * k); }
+function lastSongBeat(t) { let lo = 0, hi = SB.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (SB[m] <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r; }
+// 맥동은 곡의 실제 비트에 맞춘다 (from/to는 논리 비트 범위)
+function pulse(t, k = 9, from = 0, to = 999) { const i = lastBeat(t); if (i < from || i > to) return 0; const j = lastSongBeat(t); return j < 0 ? 0 : Math.exp(-(t - SB[j]) * k); }
 
 /* ---------------- 텍스트 / 도형 ---------------- */
 function font(size, weight = 800, fam = KR) { ctx.font = `${weight} ${size}px ${fam}`; }
@@ -876,7 +888,8 @@ function titleBadge(t, col, dark) {
   txt('롱 인터벌', x, y - 4, { size: 24, weight: 800, color: dark ? C.bg : C.lime });
   ctx.restore();
 }
-const SECS = [[0, '훈련 소개'], [5.503, '요약'], [9.427, '1세트'], [15.279, '회복 1'], [18.228, '2세트'], [24.079, '회복 2'], [27.028, '3세트'], [32.879, '회복 3'], [35.805, '마지막 2000m'], [40.681, '심박 분석'], [48.483, '정리']];
+let SECS = [];
+const SECS_L = [[0, '훈련 소개'], [8, '요약'], [16, '1세트'], [28, '회복 1'], [34, '2세트'], [46, '회복 2'], [52, '3세트'], [64, '회복 3'], [70, '마지막 2000m'], [80, '심박 분석'], [96, '정리']];
 function hud(t, dark = false) {
   if (t < .25 || t >= b(105)) return;
   const a = P(t, .25, .6);
@@ -937,7 +950,11 @@ window.ready = (async () => {
   }));
   const an = new FontFace('Anton', 'url(node_modules/@fontsource/anton/files/anton-latin-400-normal.woff2)', { weight: '400' }); await an.load(); document.fonts.add(an);
   for (const w of [600, 700]) await document.fonts.load(`${w} 20px "JetBrains Mono"`);
-  B = await (await fetch('beats.json')).json();
+  SB = await (await fetch('beats.json')).json();
+  try { const tl = await (await fetch('timeline.json')).json(); ANCH = tl.anchors; if (tl.dur) DUR = tl.dur; } catch (e) { ANCH = null; }
+  B = Array.from({ length: 160 }, (_, i) => logicalTime(i));
+  SECS = SECS_L.map(([l, n]) => [l === 0 ? 0 : b(l), n]);
+  window.DUR = DUR;
   const d = await (await fetch('run-data.json')).json(); SERIES = d.series;
   await document.fonts.ready; draw(0); return true;
 })();
