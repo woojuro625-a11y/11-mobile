@@ -174,10 +174,11 @@ function cardFrame(n, title, sub, accent = C.lime) {
   woojuroText(W - 72 - 92, 1272, 30, [['우주로 달리기', 0]]);
 }
 function stat(x, y, v, u, l, o = {}) {
-  const size = o.size || 120;
+  const size = o.size || 120, lx = x;
+  if (o.pre) { txt(o.pre, x, y, { size: Math.round(size * .42), weight: 900, color: o.color || C.white }); x += measure(o.pre, Math.round(size * .42), 900) + 8; }
   txt(v, x - 2, y, { size, fam: NUM, weight: 400, color: o.color || C.white });
   if (u) txt(u, x + measure(v, size, 400, NUM) + 8, y, { size: Math.round(size * .27), weight: 900, color: o.uc || C.lime });
-  if (l) txt(l, x, y + Math.round(size * .36) + 6, { size: o.ls || 26, weight: 700, alpha: .6 });
+  if (l) txt(l, lx, y + Math.round(size * .36) + 6, { size: o.ls || 26, weight: 700, alpha: .6 });
 }
 function panel(x, y, w, h, col = 'rgba(26,31,38,.92)') { rrect(x, y, w, h, 28); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(243,242,236,.1)'; ctx.lineWidth = 2; ctx.stroke(); }
 
@@ -198,8 +199,8 @@ const FEED_CARDS = [
     panel(72, 996, W - 144, 210, 'rgba(8,21,33,.95)');
     txt('회복구간', 112, 1058, { size: 36, weight: 900, color: C.sky });
     txt('랩 버튼까지 자유 조깅', 112 + measure('회복구간', 36, 900) + 18, 1056, { size: 24, weight: 700, alpha: .65 });
-    [[String(RECAVG.dist), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']].forEach(([v, u, l], i) =>
-      stat(112 + i * 228, 1148, v, u, l, { size: 66, ls: 22, color: i === 0 ? C.sky : C.white, uc: C.sky }));
+    [[String(r10(RECAVG.dist)), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']].forEach(([v, u, l], i) =>
+      stat(112 + i * 228, 1148, v, u, l, { size: 66, ls: 22, color: i === 0 ? C.sky : C.white, uc: C.sky, pre: i === 0 ? '약' : null }));
   }],
   // 3. 세트별 기록
   ['03-sets', () => {
@@ -274,7 +275,7 @@ const FEED_CARDS = [
     cardFrame(6, '회복 & 라스트', `회복 조깅 ${RECS.length}회 평균 · 마지막 2000m`, C.sky);
     panel(72, 350, W - 144, 400, 'rgba(8,21,33,.95)');
     txt(`회복 조깅 ${RECS.length}회 평균 · 랩 버튼까지 자유 조깅`, 112, 420, { size: 30, weight: 900, color: C.sky });
-    stat(112, 560, String(RECAVG.dist), 'm', '평균 회복 거리', { size: 110, color: C.sky, uc: C.sky });
+    stat(112, 560, String(r10(RECAVG.dist)), 'm', '평균 회복 거리', { size: 110, color: C.sky, uc: C.sky, pre: '약' });
     stat(420, 560, fmtPace(RECAVG.pace), '', '평균 페이스', { size: 110 });
     stat(730, 560, String(RECAVG.hr), 'bpm', '평균 심박', { size: 110, uc: C.sky });
     const cwR = (W - 224 - 18 * (RECS.length - 1)) / RECS.length;

@@ -103,10 +103,10 @@ function arrow(x, y, ang, size, col) {
 }
 /* 가민 워크아웃 구성 (FIT의 workout / workout_step에서 가져온 계획) */
 const WORKOUT = {
-  name: '2km*5+1km 롱 인터벌',
+  name: '3k*3 + 2k 롱 인터벌',
   steps: [
-    ...REPS.flatMap(r => [{ run: true, dist: 2000, lo: r.lo, hi: r.hi }, { run: false, lo: 300, hi: 390 }]),
-    { run: true, dist: 1000, lo: 215, hi: 220 },
+    ...REPS.flatMap(r => [{ run: true, dist: SETD, lo: r.lo, hi: r.hi }, { run: false }]),
+    { run: true, dist: FINAL.dist, lo: FINAL.lo, hi: FINAL.hi, last: true },
   ],
 };
 function drawWorkoutPlan(x, y, w) {
@@ -118,8 +118,8 @@ function drawWorkoutPlan(x, y, w) {
   ctx.restore();
   txt('가민 워크아웃', x + 56, y, { size: 26, weight: 800, alpha: .6 });
   txt(WORKOUT.name, x + 56 + measure('가민 워크아웃', 26, 800) + 14, y + 1, { size: 30, weight: 900 });
-  // 스텝 타임라인 (길이 비례, 회복은 실제 평균 520m 비율로)
-  const units = WORKOUT.steps.reduce((a, st) => a + (st.run ? st.dist : 520), 0), gap = 4;
+  // 스텝 타임라인 (길이 비례, 회복은 실제 평균 거리 비율로)
+  const units = WORKOUT.steps.reduce((a, st) => a + (st.run ? st.dist : RECAVG.dist), 0), gap = 4;
   const bw = w - gap * (WORKOUT.steps.length - 1);
   let cx = x; const by = y + 78, bh = 54;
   // 헤더 오른쪽: 빌드업 규칙
@@ -129,14 +129,14 @@ function drawWorkoutPlan(x, y, w) {
   const runCenters = [];
   let n = 0;
   WORKOUT.steps.forEach((st, i) => {
-    const sw = bw * (st.run ? st.dist : 520) / units;
+    const sw = bw * (st.run ? st.dist : RECAVG.dist) / units;
     rrect(cx, by, sw, bh, 10);
-    ctx.fillStyle = st.run ? (st.dist === 1000 ? C.lime : ZC[3]) : 'rgba(92,200,255,.55)'; ctx.fill();
+    ctx.fillStyle = st.run ? (st.last ? C.lime : ZC[3]) : 'rgba(92,200,255,.55)'; ctx.fill();
     if (st.run) {
       n++; runCenters.push([cx + sw / 2, st.lo]);
-      txt(st.dist === 1000 ? '1km' : `2km`, cx + sw / 2, by + 36, { size: 24, fam: NUM, weight: 400, color: C.bg, align: 'center' });
+      txt(`${st.dist / 1000}km`, cx + sw / 2, by + 36, { size: 24, fam: NUM, weight: 400, color: C.bg, align: 'center' });
       // 목표는 '범위' — 하한·상한을 같은 밝기로 묶어서 표시
-      const rng = `${fmtPace(st.lo)}~${fmtPace(st.hi)}`, col = st.dist === 1000 ? C.lime : ZC[3];
+      const rng = `${fmtPace(st.lo)}~${fmtPace(st.hi)}`, col = st.last ? C.lime : ZC[3];
       line(cx + 4, by + bh + 8, cx + sw - 4, by + bh + 8, 1, { color: col, w: 2, alpha: .8 });
       line(cx + 4, by + bh + 2, cx + 4, by + bh + 8, 1, { color: col, w: 2, alpha: .8 }); line(cx + sw - 4, by + bh + 2, cx + sw - 4, by + bh + 8, 1, { color: col, w: 2, alpha: .8 });
       if (measure(rng, 18, 700, MONO) <= sw - 4) txt(rng, cx + sw / 2, by + bh + 36, { size: 18, fam: MONO, weight: 700, align: 'center', color: C.white });
@@ -160,7 +160,7 @@ function drawWorkoutPlan(x, y, w) {
   txt('질주 · 목표 페이스 범위', x + 32, ly, { size: 22, weight: 700, alpha: .75 });
   const lx2 = x + 32 + measure('질주 · 목표 페이스 범위', 22, 700) + 30;
   rrect(lx2, ly - 18, 22, 22, 5); ctx.fillStyle = 'rgba(92,200,255,.55)'; ctx.fill();
-  txt(`회복 · 랩 버튼까지 ${fmtPace(300)}~${fmtPace(390)}`, lx2 + 32, ly, { size: 22, weight: 700, alpha: .75 });
+  txt('회복 · 랩 버튼까지 자유 조깅', lx2 + 32, ly, { size: 22, weight: 700, alpha: .75 });
 }
 function cardFrame(n, title, sub, accent = C.lime) {
   bgFill(C.bg, .1, 900, 160);
@@ -170,76 +170,79 @@ function cardFrame(n, title, sub, accent = C.lime) {
   if (sub) txt(sub, 72, 300, { size: 28, weight: 700, alpha: .6 });
   line(72, 1232, W - 72, 1232, 1, { color: C.white, w: 1.5, alpha: .15 });
   pin(84, 1272, 11, C.white);
-  txt('목동교 멀티스포츠존 · 2026.11.04', 106, 1283, { size: 24, weight: 700, alpha: .7 });
+  txt(`목동교 멀티스포츠존 · ${RUN.date}`, 106, 1283, { size: 24, weight: 700, alpha: .7 });
   woojuroText(W - 72 - 92, 1272, 30, [['우주로 달리기', 0]]);
 }
 function stat(x, y, v, u, l, o = {}) {
-  const size = o.size || 120;
+  const size = o.size || 120, lx = x;
+  if (o.pre) { txt(o.pre, x, y, { size: Math.round(size * .42), weight: 900, color: o.color || C.white }); x += measure(o.pre, Math.round(size * .42), 900) + 8; }
   txt(v, x - 2, y, { size, fam: NUM, weight: 400, color: o.color || C.white });
   if (u) txt(u, x + measure(v, size, 400, NUM) + 8, y, { size: Math.round(size * .27), weight: 900, color: o.uc || C.lime });
-  if (l) txt(l, x, y + Math.round(size * .36) + 6, { size: o.ls || 26, weight: 700, alpha: .6 });
+  if (l) txt(l, lx, y + Math.round(size * .36) + 6, { size: o.ls || 26, weight: 700, alpha: .6 });
 }
 function panel(x, y, w, h, col = 'rgba(26,31,38,.92)') { rrect(x, y, w, h, 28); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(243,242,236,.1)'; ctx.lineWidth = 2; ctx.stroke(); }
 
 const FEED_CARDS = [
   // 2. 세션 요약
   ['02-session-summary', () => {
-    cardFrame(2, '세션 요약', '2026.11.04 수요일 · 기온 18°C');
+    cardFrame(2, '세션 요약', '2026.10.13 화요일 · 기온 20°C');
     // 줄 구성: 거리·시간 / 페이스·칼로리 / 평균 심박·최대 심박
-    const cells = [['13.12', 'km', '총 거리'], ['57:05', '', '운동 시간'], [fmtPace(261.1), '', '평균 페이스'], ['809', 'kcal', '소모 칼로리'], ['154', 'bpm', '평균 심박'], ['177', 'bpm', '최대 심박']];
+    const cells = [['12.72', 'km', '총 거리'], ['54:36', '', '운동 시간'], [fmtPace(257.4), '', '평균 페이스'], ['771', 'kcal', '소모 칼로리'], ['152', 'bpm', '평균 심박'], ['175', 'bpm', '최대 심박']];
     cells.forEach(([v, u, l], i) => stat(72 + (i % 2) * 480, 420 + Math.floor(i / 2) * 140, v, u, l, { size: 92, uc: u === 'bpm' ? C.coral : C.lime }));
     // 본훈련 패널
     panel(72, 770, W - 144, 210);
     txt('본훈련', 112, 832, { size: 36, weight: 900, color: C.lime });
-    txt('2000m × 5 + 마지막 스텝', 112 + measure('본훈련', 36, 900) + 18, 830, { size: 24, weight: 700, alpha: .65 });
-    [['10.52', 'km', '거리'], ['40:58', '', '시간'], [fmtPace(233.6), '', '평균 페이스'], ['161', 'bpm', '평균 심박']].forEach(([v, u, l], i) =>
+    txt('3000m × 3 + 2000m', 112 + measure('본훈련', 36, 900) + 18, 830, { size: 24, weight: 700, alpha: .65 });
+    [['11.00', 'km', '거리'], ['42:43', '', '시간'], [fmtPace(233.0), '', '평균 페이스'], ['158', 'bpm', '평균 심박']].forEach(([v, u, l], i) =>
       stat(112 + i * 228, 922, v, u, l, { size: 66, ls: 22, uc: i === 3 ? C.coral : C.lime }));
     // 회복구간 패널
     panel(72, 996, W - 144, 210, 'rgba(8,21,33,.95)');
     txt('회복구간', 112, 1058, { size: 36, weight: 900, color: C.sky });
-    txt(`랩 버튼까지 조깅 · 목표 ${fmtPace(300)}~${fmtPace(390)}`, 112 + measure('회복구간', 36, 900) + 18, 1056, { size: 24, weight: 700, alpha: .65 });
-    [[String(RECAVG.dist), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']].forEach(([v, u, l], i) =>
-      stat(112 + i * 228, 1148, v, u, l, { size: 66, ls: 22, color: i === 0 ? C.sky : C.white, uc: C.sky }));
+    txt('랩 버튼까지 자유 조깅', 112 + measure('회복구간', 36, 900) + 18, 1056, { size: 24, weight: 700, alpha: .65 });
+    [[String(r10(RECAVG.dist)), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']].forEach(([v, u, l], i) =>
+      stat(112 + i * 228, 1148, v, u, l, { size: 66, ls: 22, color: i === 0 ? C.sky : C.white, uc: C.sky, pre: i === 0 ? '약' : null }));
   }],
   // 3. 세트별 기록
   ['03-sets', () => {
-    cardFrame(3, '세트별 기록', '2000m × 5 + 마지막 스텝 · 모든 세트 목표 페이스 적중');
+    cardFrame(3, '세트별 기록', '3000m × 3 + 2000m · 4세트 중 3세트 목표 적중');
     panel(56, 330, W - 112, 312, 'rgba(26,31,38,.9)');
     drawWorkoutPlan(84, 386, W - 168);
     const cols = [72, 200, 360, 560, 800];
     ['세트', '거리', '페이스', '목표 범위', '심박 평균/최대'].forEach((h, i) => txt(h, cols[i], 690, { size: 22, weight: 800, alpha: .5 }));
     txt('Z4+Z5', W - 72, 690, { size: 22, weight: 800, alpha: .5, align: 'right' });
-    const rows = [...REPS.map((r, i) => ({ n: `${i + 1}세트`, d: '2000m', p: r.pace, lo: r.lo, hi: r.hi, hr: Math.round(r.hr), mx: REPMAX[i], z: REPZ[i] })),
-      { n: '라스트', d: '518m', p: FINAL.pace, lo: FINAL.lo, hi: FINAL.hi, hr: FINAL.hr, mx: 172, z: FINALZ }];
+    const rows = [...REPS.map((r, i) => ({ n: `${i + 1}세트`, d: `${SETD}m`, p: r.pace, lo: r.lo, hi: r.hi, hr: Math.round(r.hr), mx: REPMAX[i], z: REPZ[i] })),
+      { n: '라스트', d: `${FINAL.dist}m`, p: FINAL.pace, lo: FINAL.lo, hi: FINAL.hi, hr: FINAL.hr, mx: FINAL.max, z: FINALZ }];
     rows.forEach((r, i) => {
-      const y = 756 + i * 76, last = i === 5;
-      if (i % 2 === 0) { ctx.save(); ctx.globalAlpha = .5; rrect(56, y - 52, W - 112, 74, 16); ctx.fillStyle = C.bg2; ctx.fill(); ctx.restore(); }
+      const y = 770 + i * 100, last = i === rows.length - 1;
+      if (i % 2 === 0) { ctx.save(); ctx.globalAlpha = .5; rrect(56, y - 60, W - 112, 90, 16); ctx.fillStyle = C.bg2; ctx.fill(); ctx.restore(); }
       txt(r.n, cols[0], y, { size: 30, weight: 900, color: last ? C.lime : C.white });
       txt(r.d, cols[1], y, { size: 34, fam: NUM, weight: 400, alpha: .85 });
       txt(fmtPace(r.p), cols[2], y + 4, { size: 50, fam: NUM, weight: 400, color: last ? C.lime : C.white });
-      circle(cols[3] + 16, y - 10, 16, { fill: C.lime }); check(cols[3] + 16, y - 10, 16, 1);
+      if (hitOf({ pace: r.p, hi: r.hi })) { circle(cols[3] + 16, y - 10, 16, { fill: C.lime }); check(cols[3] + 16, y - 10, 16, 1); }
+      else { circle(cols[3] + 16, y - 10, 15, { stroke: ZC[3], w: 3 }); txt(`+${Math.round(r.p) - r.hi}`, cols[3] + 16, y - 2, { size: 18, fam: NUM, weight: 400, color: ZC[3], align: 'center' }); }
       txt(`${fmtPace(r.lo)}~${fmtPace(r.hi)}`, cols[3] + 42, y, { size: 24, fam: MONO, weight: 700, alpha: .8 });
       txt(`${r.hr} / ${r.mx}`, cols[4], y, { size: 34, fam: NUM, weight: 400, color: C.white });
       const tot = r.z.reduce((a, c) => a + c, 0);
       txt(`${Math.round((r.z[3] + r.z[4]) / tot * 100)}%`, W - 72, y, { size: 34, fam: NUM, weight: 400, color: ZC[3], align: 'right' });
     });
-    txt(`세트마다 3~6초씩 단축 · ${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[4].pace)} · 마지막 ${fmtPace(FINAL.pace)}`, 72, 1204, { size: 28, weight: 900, color: C.lime });
+    txt(`목표 세트마다 -5초 · ${fmtPace(REPS[0].pace)} → ${fmtPace(REPS[1].pace)} → ${fmtPace(REPS[2].pace)} · 마지막 2000m ${fmtPace(FINAL.pace)}`, 72, 1204, { size: 28, weight: 900, color: C.lime });
   }],
   // 4. 심박 변화 그래프
   ['04-hr-trend', () => {
     cardFrame(4, '심박 변화', '세션 전체 · 존 색상 (최대심박 186 기준)', C.coral);
-    const gx = 108, gy = 360, gw = W - 180, gh = 600, T = 3593, X = s => gx + gw * s / T;
+    const gx = 108, gy = 360, gw = W - 180, gh = 600, T = SESSION_T, X = s => gx + gw * s / T;
     REPWIN.concat([FINALWIN]).forEach(([a, c], i) => {
       ctx.save(); ctx.globalAlpha = .1; ctx.fillStyle = C.white; ctx.fillRect(X(a), gy, X(c) - X(a), gh); ctx.restore();
-      txt(i < 5 ? `${i + 1}세트` : '라스트', (X(a) + X(c)) / 2, gy + gh + 38, { size: 22, weight: 800, align: 'center', alpha: .75 });
+      txt(i < SETN ? `${i + 1}세트` : '라스트', (X(a) + X(c)) / 2, gy + gh + 38, { size: 22, weight: 800, align: 'center', alpha: .75 });
     });
     hrGraph(gx, gy, gw, gh, 0, T, 1, { lo: 95, hi: 186, band: .13, zoneLabels: true, zoneLeft: true, lw: 4 });
     pauseMarks(X, gy, gh);
     drop(84, 1036, 9, C.sky);
     txt('그래프가 끊긴 곳 = 급수·완전 휴식 (시계 일시정지 · 모두 회복 조깅 중)', 104, 1044, { size: 24, weight: 700, color: C.sky });
     txt('세트별 최대 심박', 72, 1094, { size: 24, weight: 800, alpha: .6 });
-    REPMAX.forEach((m, i) => { const x = 72 + i * 190; rrect(x, 1112, 172, 70, 16); ctx.strokeStyle = 'rgba(255,90,95,.6)'; ctx.lineWidth = 2; ctx.stroke();
-      txt(String(m), x + 70, 1162, { size: 44, fam: NUM, weight: 400, align: 'center' }); txt(`${i + 1}세트`, x + 132, 1158, { size: 18, weight: 800, color: C.coral, align: 'center' }); });
+    const mxs = [...REPMAX, FINAL.max], cwM = (W - 144 - 18 * (mxs.length - 1)) / mxs.length;
+    mxs.forEach((m, i) => { const x = 72 + i * (cwM + 18); rrect(x, 1112, cwM, 70, 16); ctx.strokeStyle = 'rgba(255,90,95,.6)'; ctx.lineWidth = 2; ctx.stroke();
+      txt(String(m), x + cwM * .4, 1162, { size: 44, fam: NUM, weight: 400, align: 'center' }); txt(i < SETN ? `${i + 1}세트` : '라스트', x + cwM * .78, 1158, { size: 18, weight: 800, color: C.coral, align: 'center' }); });
   }],
   // 5. 심박존 분석
   ['05-hr-zones', () => {
@@ -248,7 +251,7 @@ const FEED_CARDS = [
     circle(cx, cy, R, { stroke: C.bg3, w: 60 });
     MAINZ.forEach((v, i) => { const da = Math.PI * 2 * v / tot; circle(cx, cy, R, { stroke: ZC[i], w: 60, a0, a1: a0 + da }); a0 += da; });
     txt('Z4', cx, cy - 60, { size: 38, weight: 900, color: ZC[3], align: 'center' });
-    txt('64%', cx, cy + 56, { size: 96, fam: NUM, weight: 400, align: 'center' });
+    txt(`${MAINZ4}%`, cx, cy + 56, { size: 96, fam: NUM, weight: 400, align: 'center' });
     for (let i = 4; i >= 0; i--) {
       const y = 420 + (4 - i) * 72, x = 540;
       rrect(x, y - 24, 12, 30, 4); ctx.fillStyle = ZC[i]; ctx.fill();
@@ -258,39 +261,39 @@ const FEED_CARDS = [
       txt(`${Math.round(MAINZ[i] / tot * 100)}%`, W - 72, y, { size: 26, fam: MONO, weight: 700, color: ZC[i], align: 'right' });
     }
     txt('세트별 존 구성 (위 숫자 = Z4+Z5 비중)', 72, 830, { size: 26, weight: 800, alpha: .6 });
-    const all = [...REPZ, FINALZ], cw = 120, gap = (W - 144 - 6 * cw) / 5, y0 = 1150, hh = 250;
+    const all = [...REPZ, FINALZ], nA = all.length, cw = 170, gap = (W - 144 - nA * cw) / (nA - 1), y0 = 1150, hh = 250;
     all.forEach((z, i) => {
       const t_ = z.reduce((a, c) => a + c, 0), x = 72 + i * (cw + gap); let y = y0;
       ctx.save(); rrect(x, y0 - hh, cw, hh, 10); ctx.clip();
       z.forEach((v, j) => { const h = hh * v / t_; ctx.fillStyle = ZC[j]; ctx.fillRect(x, y - h, cw, h + .5); y -= h; }); ctx.restore();
       txt(`${Math.round((z[3] + z[4]) / t_ * 100)}%`, x + cw / 2, y0 - hh - 14, { size: 34, fam: NUM, weight: 400, align: 'center' });
-      txt(i < 5 ? `${i + 1}세트` : '라스트', x + cw / 2, y0 + 34, { size: 20, weight: 800, align: 'center', alpha: .7 });
+      txt(i < SETN ? `${i + 1}세트` : '라스트', x + cw / 2, y0 + 34, { size: 20, weight: 800, align: 'center', alpha: .7 });
     });
   }],
   // 6. 회복 조깅 & 라스트 스퍼트
   ['06-recovery-last', () => {
-    cardFrame(6, '회복 & 라스트', '회복 조깅 5회 평균 · 마지막 바퀴', C.sky);
+    cardFrame(6, '회복 & 라스트', `회복 조깅 ${RECS.length}회 평균 · 마지막 2000m`, C.sky);
     panel(72, 350, W - 144, 400, 'rgba(8,21,33,.95)');
-    txt('회복 조깅 5회 평균', 112, 420, { size: 30, weight: 900, color: C.sky });
-    stat(112, 560, String(RECAVG.dist), 'm', '평균 회복 거리', { size: 110, color: C.sky, uc: C.sky });
+    txt(`회복 조깅 ${RECS.length}회 평균 · 랩 버튼까지 자유 조깅`, 112, 420, { size: 30, weight: 900, color: C.sky });
+    stat(112, 560, String(r10(RECAVG.dist)), 'm', '평균 회복 거리', { size: 110, color: C.sky, uc: C.sky, pre: '약' });
     stat(420, 560, fmtPace(RECAVG.pace), '', '평균 페이스', { size: 110 });
     stat(730, 560, String(RECAVG.hr), 'bpm', '평균 심박', { size: 110, uc: C.sky });
-    RECS.forEach((p, i) => { const x = 112 + i * 174; rrect(x, 650, 156, 64, 14); ctx.strokeStyle = 'rgba(92,200,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
-      txt(fmtPace(p), x + 78, 696, { size: 36, fam: NUM, weight: 400, align: 'center' }); });
+    const cwR = (W - 224 - 18 * (RECS.length - 1)) / RECS.length;
+    RECS.forEach((p, i) => { const x = 112 + i * (cwR + 18); rrect(x, 650, cwR, 64, 14); ctx.strokeStyle = 'rgba(92,200,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
+      txt(fmtPace(p), x + cwR / 2, 696, { size: 36, fam: NUM, weight: 400, align: 'center' }); });
     panel(72, 790, W - 144, 400);
     txt('라스트 스퍼트', 112, 860, { size: 30, weight: 900, color: C.lime });
-    txt('마지막 바퀴', W - 112, 860, { size: 26, weight: 800, alpha: .6, align: 'right' });
+    txt('마지막 세트', W - 112, 860, { size: 26, weight: 800, alpha: .6, align: 'right' });
     stat(112, 1030, fmtPace(FINAL.pace), '', '평균 페이스', { size: 170, color: C.lime });
     const mW = measure('m', 44, 900);
     txt('m', W - 112, 1030, { size: 44, weight: 900, color: C.lime, align: 'right' });
-    txt('520', W - 112 - mW - 6, 1030, { size: 130, fam: NUM, weight: 400, align: 'right' });
-    txt('약', W - 112 - mW - 12 - measure('520', 130, 400, NUM) - 6, 1030, { size: 40, weight: 900, align: 'right' });
-    txt(`목표 ${fmtPace(215)}~${fmtPace(220)}보다 8초 빠르게 · 평균 심박 164`, 112, 1150, { size: 28, weight: 800, alpha: .8 });
+    txt(String(FINAL.dist), W - 112 - mW - 6, 1030, { size: 130, fam: NUM, weight: 400, align: 'right' });
+    txt(`목표 ${fmtPace(FINAL.lo)}~${fmtPace(FINAL.hi)} 적중 · 평균 심박 ${FINAL.hr} · 최대 ${FINAL.max}`, 112, 1150, { size: 28, weight: 800, alpha: .8 });
   }],
   // 7. 러닝 다이내믹스 & 훈련 효과
   ['07-dynamics', () => {
     cardFrame(7, '러닝 다이내믹스', '세션 평균 · 훈련 효과');
-    const cells = [['186', 'spm', '케이던스'], ['1.21', 'm', '보폭'], ['218', 'ms', '지면 접촉 시간'], ['8.3', 'cm', '수직 진폭'], ['7.0', '%', '수직 비율'], ['18.0', 'km/h', '최고 속도']];
+    const cells = [['188', 'spm', '케이던스'], ['1.23', 'm', '보폭'], ['217', 'ms', '지면 접촉 시간'], ['8.3', 'cm', '수직 진폭'], ['7.0', '%', '수직 비율'], ['17.7', 'km/h', '최고 속도']];
     cells.forEach(([v, u, l], i) => stat(72 + (i % 2) * 480, 440 + Math.floor(i / 2) * 170, v, u, l, { size: 110 }));
     panel(72, 880, W - 144, 310);
     txt('훈련 효과', 112, 950, { size: 34, weight: 900, color: C.lime });
@@ -300,7 +303,7 @@ const FEED_CARDS = [
       txt(v.toFixed(1), cx, cy + 24, { size: 66, fam: NUM, weight: 400, align: 'center' });
       txt(label, cx, cy + 74, { size: 22, weight: 800, color: col, align: 'center' });
     };
-    g(220, 4.3, '유산소', C.lime); g(430, 1.2, '무산소', C.sky);
+    g(220, 4.0, '유산소', C.lime); g(430, 1.3, '무산소', C.sky);
     txt('유산소 능력', 580, 1060, { size: 40, weight: 900, color: C.lime });
     txt('크게 향상', 580, 1112, { size: 40, weight: 900, color: C.lime });
     txt('젖산역치 부근 지속 훈련', 580, 1158, { size: 24, weight: 700, alpha: .6 });

@@ -39,6 +39,7 @@ const RECSETS = [
   { dist: 587, time: 266.5, pace: 454.0, hr: 133, win: [2592, 2877], pause: 20 },
 ];
 // 영상 타임라인 (비트 인덱스): 세트 12박 → 회복 6박 반복, 마지막 2000m 10박
+const r10 = v => Math.round(v / 10) * 10; // 회복 거리 표기: 1의 자리 반올림 + '약'
 const SEQ = { set: [16, 34, 52], rec: [28, 46, 64], last: 70, chart: 80, donut: 88, zones: 92, outro: 96 };
 // 시계 일시정지 구간 = 급수·완전 휴식 [시작 경과초, 길이초]
 const PAUSES = [[781, 12], [1718, 19], [2675, 20]];
@@ -411,11 +412,12 @@ function sSummary(t) {
   // 본훈련 (한 줄 4개)
   txt('본훈련', cx + 44, cy + 376, { size: 38, weight: 900, color: C.lime });
   txt('3000m × 3 + 2000m', cx + 44 + measure('본훈련', 38, 900) + 18, cy + 374, { size: 24, weight: 700, alpha: .65 });
-  const row4 = (items, y, t1, opt = {}) => items.forEach(([v, u, l], i) => {
-    const ui = E.outX(P(t, t1 + i * .07, t1 + .3 + i * .07)), x = cx + 44 + i * 222;
+  const row4 = (items, y, t1, opt = {}) => items.forEach(([v, u, l, pre], i) => {
+    const ui = E.outX(P(t, t1 + i * .07, t1 + .3 + i * .07)); let x = cx + 44 + i * 222; const lx = x;
+    if (pre) { maskText(pre, x, y, { size: 30, weight: 900, color: opt.first && i === 0 ? opt.first : C.white }, 1 - ui); x += measure(pre, 30, 900) + 6; }
     maskText(v, x - 2, y, { size: 72, fam: NUM, weight: 400, color: opt.first && i === 0 ? opt.first : C.white }, 1 - ui);
     if (u) maskText(u, x + measure(v, 72, 400, NUM) + 6, y, { size: 24, weight: 900, color: opt.uc ? opt.uc(i) : C.lime }, 1 - ui);
-    maskText(l, x, y + 36, { size: 22, weight: 700, alpha: .55 }, 1 - ui);
+    maskText(l, lx, y + 36, { size: 22, weight: 700, alpha: .55 }, 1 - ui);
   });
   row4([['11.00', 'km', '거리'], ['42:43', '', '시간'], [fmtPace(233.0), '', '평균 페이스'], ['158', 'bpm', '평균 심박']], cy + 476, b(10), { uc: i => i === 3 ? C.coral : C.lime });
   // 본훈련 심박존
@@ -428,7 +430,7 @@ function sSummary(t) {
   const ru = P(t, b(13), b(13) + .2);
   txt('회복구간', cx + 44, cy + 800, { size: 38, weight: 900, color: C.sky, alpha: ru });
   txt('랩 버튼까지 자유 조깅', cx + 44 + measure('회복구간', 38, 900) + 18, cy + 798, { size: 24, weight: 700, alpha: .65 * ru });
-  row4([[String(RECAVG.dist), 'm', '평균 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']], cy + 900, b(13) + .1, { first: C.sky, uc: () => C.sky });
+  row4([[String(r10(RECAVG.dist)), 'm', '평균 거리', '약'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박'], [String(PAUSES.length), '회', '급수·휴식']], cy + 900, b(13) + .1, { first: C.sky, uc: () => C.sky });
   ctx.restore();
   sectionLabel('세션 요약', '01', t0, t);
   const ou = E.inC(P(t, b(16) - .14, b(16)));
@@ -526,7 +528,8 @@ function sRecSet(t, k) {
   const du = E.outX(P(t, t0 + .1, t0 + .4));
   ctx.save(); ctx.globalAlpha = du; ctx.translate(W - 72, 330);
   const mW = measure('m', 50, 900); txt('m', 0, 0, { size: 50, weight: 900, color: C.sky, align: 'right' });
-  txt(String(r.dist), -mW - 8, 0, { size: 150, fam: NUM, weight: 400, color: C.sky, align: 'right' }); ctx.restore();
+  const dS = String(r10(r.dist)); txt(dS, -mW - 8, 0, { size: 150, fam: NUM, weight: 400, color: C.sky, align: 'right' });
+  txt('약', -mW - 8 - measure(dS, 150, 400, NUM) - 12, 0, { size: 46, weight: 900, color: C.white, align: 'right' }); ctx.restore();
   // 수치 한 줄
   const items = [[fmtDur(r.time), '', '회복 시간'], [fmtPace(r.pace), '', '평균 페이스'], [String(r.hr), 'bpm', '평균 심박']];
   items.forEach(([v, u, l], i) => {
@@ -538,7 +541,7 @@ function sRecSet(t, k) {
   // 급수·휴식
   const pu = E.outX(P(t, bt(2), bt(2) + .3));
   ctx.save(); ctx.globalAlpha = pu; drop(86, 672, 11, C.sky); ctx.restore();
-  maskText(`급수·휴식 ${r.pause}초 · 시계를 멈추고 완전히 쉼`, 110, 684, { size: 30, weight: 800, color: C.white }, 1 - pu);
+  maskText(`급수 휴식 ${r.pause}초 혹은 시계 멈추고 완전휴식`, 110, 684, { size: 30, weight: 800, color: C.white }, 1 - pu);
   // 세트 끝 ~ 다음 세트 시작 심박 (회복 구간 음영)
   const a0 = r.win[0] - 90, a1 = r.win[1] + 40, gx = 72, gy = 760, gw = W - 144, gh = 330;
   const X = s => gx + gw * (s - a0) / (a1 - a0);
@@ -658,7 +661,7 @@ function sRecovery(t) {
   ctx.restore();
   // 평균값 (한 번에)
   maskText(`회복 조깅 ${RECS.length}회 평균`, 72, 540, { size: 30, weight: 800, color: C.sky }, off);
-  const avg = [[String(RECAVG.dist), 'm', '평균 회복 거리'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박']];
+  const avg = [[String(r10(RECAVG.dist)), 'm', '평균 회복 거리(약)'], [fmtPace(RECAVG.pace), '', '평균 페이스'], [String(RECAVG.hr), 'bpm', '평균 심박']];
   avg.forEach(([v, u, l], i) => {
     const x = 72 + i * 320, y = 680;
     const bump = 1 + .03 * pulse(t, 8, 64, 71);
