@@ -34,6 +34,12 @@ lt=act.get('local_timestamp') or sess.get('start_time')
 wd='월화수목금토일'[lt.weekday()];h=lt.hour;ap='오전' if h<12 else '오후';h12=h%12 or 12
 info=dict(dist=sess.get('total_distance'),time=sess.get('total_timer_time'),avgHR=sess.get('avg_heart_rate'),maxHR=sess.get('max_heart_rate'),kcal=sess.get('total_calories'),
   cad=(sess.get('avg_running_cadence') or 0)*2,date=f"{lt.month}월 {lt.day}일 {ap} {h12}시 {lt.minute}분",dateLong=f"{lt.month}월 {lt.day}일 {wd}요일 {ap} {h12}시 {lt.minute}분")
-D={'route':route,'hr':hrs,'laps':L,'zoneSec':zsec,'zones':zones,'session':info}
+# continuous pace (10 s smoothed) for the splits chart + instantaneous max pace
+ps=[]
+for i in range(0,len(rows),2):
+    w=rows[max(0,i-4):i+5];v=sum(q['sp'] for q in w)/len(w)   # ~9 s moving average (GPS noise only)
+    if v>1.5: ps.append([round(rows[i]['d']),round(1000/v,1)])
+mxsp=max((r['sp'] for r in rows),default=0);mi=max(range(len(rows)),key=lambda k:rows[k]['sp'])
+D={'paceSeries':ps,'maxPace':{'sec':round(1000/mxsp,1) if mxsp>0 else None,'dist':round(rows[mi]['d'])},'route':route,'hr':hrs,'laps':L,'zoneSec':zsec,'zones':zones,'session':info}
 open(out,'w').write('const DATA='+json.dumps(D,ensure_ascii=False)+';\n')
 print(json.dumps(info,ensure_ascii=False),'laps',len(L),'zones',zones,zsec,'hr buckets',len(hrs),'records',len(rows))

@@ -66,7 +66,9 @@ function atDist(d){const i=idxAtDist(d);if(i>=R.length-1)return{i,f:0,t:R[i][3],
   return{i,f,t:lerp(a[3],b[3],f),hr:Math.round(lerp(a[4],b[4],f)),pc:lerp(a[5],b[5],f)}}
 const LAPS=DATA.laps.map(l=>l[1]/(l[0]/1000));
 const LAPD=DATA.laps.map(l=>l[0]);const lapLabel=(i,u='K')=>LAPD[i]>=990?`${i+1}${u}`:`${(LAPD[i]/1000).toFixed(2)}${u==='K'?'':'km'}`;
-const PLO=Math.min(...LAPS)-15,PHI=Math.max(...LAPS)+15;const NL=LAPS.length;
+const MAXP=(DATA.maxPace&&DATA.maxPace.sec)||Math.min(...LAPS);const LPLO=Math.min(...LAPS)-15;
+const PSER=(DATA.paceSeries||[]);const PSORT=PSER.map(x=>x[1]).sort((a,b)=>a-b);const P98=PSORT.length?PSORT[Math.floor(PSORT.length*.98)]:Math.max(...LAPS);
+const PLO=Math.floor((Math.min(MAXP,PSORT[0]||MAXP,...LAPS)-8)/10)*10,PHI=Math.ceil((Math.max(P98,...LAPS)+10)/10)*10;const NL=LAPS.length;
 const dsec=s=>{s=Math.round(s);return s>=60?`${Math.floor(s/60)}분 ${s%60}초`:`${s}초`};
 const SPLIT_LINE=(()=>{const sp=Math.max(...LAPS)-Math.min(...LAPS);const last=LAPS[NL-1],first=LAPS[0];
   if(sp<=20)return'흔들림 없이 같은 리듬으로';if(last===Math.min(...LAPS)&&first>=Math.max(...LAPS)-5)return'갈수록 빨라지고 마지막은 스퍼트';if(last===Math.min(...LAPS))return'마지막 1km는 스퍼트';return'구간마다 리듬을 바꿔가며'})();
@@ -180,34 +182,43 @@ function fig02(t){
 // =============== FIG 03 : splits, drawn progressively (7.0 - 10.0)
 const SP_AX={x0:150,x1:930,y0:1150,y1:620};
 const spY=s=>lerp(SP_AX.y0-60,SP_AX.y1+60,(PHI-s)/(PHI-PLO));
-const SP_X=i=>lerp(230,880,NL>1?i/(NL-1):0);
+const xOfD=d=>lerp(SP_AX.x0,SP_AX.x1,clamp(d/TOTAL));const LAPMID=(()=>{let c=0;return LAPD.map(d=>{const m=c+d/2;c+=d;return m})})();
+const SP_X=i=>xOfD(LAPMID[i]);
+const PACE_PTS=PSER.map(([d,p])=>[xOfD(d),clamp(p,PLO,PHI)]);const LAPSTART=(()=>{let c=0;return LAPD.map(d=>{const a=c;c+=d;return a})})();
 const SPLIT_PTS=(()=>{const pts=LAPS.map((s,i)=>[SP_X(i),spY(s)]);const full=[[SP_AX.x0,pts[0][1]],...pts,[SP_AX.x1,pts[pts.length-1][1]]];const o=[];
   for(let i=0;i<full.length-1;i++)for(let k=0;k<12;k++){const f=k/12;o.push([lerp(full[i][0],full[i+1][0],f),lerp(full[i][1],full[i+1][1],eio3(f))])}o.push(full[full.length-1]);return o})();
 const SD0=7.35,SD1=8.75; // line drawing window
 function fig03(t){
-  text('구간 페이스',70,350,56,F.kr,C.pencil,{w:'900',alpha:P(t,7.0,7.2)});label('1km 마다 기록',70,400,C.pencil,{px:28,alpha:P(t,7.05,7.25)});
+  text('페이스 그래프',70,350,56,F.kr,C.pencil,{w:'900',alpha:P(t,7.0,7.2)});label('실제 페이스와 1km 평균',70,400,C.pencil,{px:28,alpha:P(t,7.05,7.25)});
   const ap=eo3(P(t,7.05,7.35));pline(seg(SP_AX.x0,SP_AX.y0,SP_AX.x0,SP_AX.y1,12),ap,C.pencil,2.4);pline(seg(SP_AX.x0,SP_AX.y0,SP_AX.x1,SP_AX.y0,20),ap,C.pencil,2.4);
-  // y guides
-  (()=>{const o=[];for(let v=Math.ceil(PLO/30)*30;v<=PHI;v+=30)o.push(v);return o})().forEach((s,i)=>{const y=spY(s);line(SP_AX.x0,y,lerp(SP_AX.x0,SP_AX.x1,ap),y,'rgba(46,44,41,.15)',1.5,1,[4,8]);mono(pace(s),SP_AX.x0-12,y+8,C.pencil,{align:'right',px:20,alpha:ap})});
+  // y grid every 30 s (faster = higher)
+  for(let v=Math.ceil(PLO/30)*30;v<=PHI;v+=30){const y=spY(v);line(SP_AX.x0,y,lerp(SP_AX.x0,SP_AX.x1,ap),y,'rgba(46,44,41,.15)',1.5,1,[4,8]);mono(pace(v),SP_AX.x0-12,y+8,C.pencil,{align:'right',px:20,alpha:ap})}
+  // x ticks at real km positions
+  let c=0;LAPD.forEach((d,i)=>{c+=d;const x=xOfD(c);line(x,SP_AX.y0,x,SP_AX.y0+10,C.pencil,2,ap);text(lapLabel(i),x,SP_AX.y0+44,NL>6?24:28,F.wide,C.pencil,{align:'center',alpha:ap})});
   const lp=P(t,SD0,SD1);const xNow=lerp(SP_AX.x0,SP_AX.x1,lp);
-  // hatch under the drawn part
-  if(lp>0){ctx.save();ctx.beginPath();ctx.moveTo(SP_AX.x0,SP_AX.y0);SPLIT_PTS.forEach(q=>ctx.lineTo(q[0],q[1]));ctx.lineTo(SP_AX.x1,SP_AX.y0);ctx.closePath();ctx.clip();
-    ctx.beginPath();ctx.rect(SP_AX.x0,SP_AX.y1-120,xNow-SP_AX.x0,700);ctx.clip();const ink=P(t,9.45,9.75);
-    ctx.strokeStyle=C.pencil;ctx.globalAlpha=.45;ctx.lineWidth=1.8;ctx.beginPath();for(let k=-700;k<900;k+=11){ctx.moveTo(SP_AX.x0+k,SP_AX.y0);ctx.lineTo(SP_AX.x0+k+600,SP_AX.y0-600)}ctx.stroke();
+  const vis=PACE_PTS.filter(q=>q[0]<=xNow).map(q=>[q[0],spY(q[1])]);
+  // hatch under the real pace line
+  if(vis.length>1){ctx.save();ctx.beginPath();ctx.moveTo(vis[0][0],SP_AX.y0);vis.forEach(q=>ctx.lineTo(q[0],q[1]));ctx.lineTo(vis[vis.length-1][0],SP_AX.y0);ctx.closePath();ctx.clip();const ink=P(t,9.45,9.75);
+    ctx.strokeStyle=C.pencil;ctx.globalAlpha=.4;ctx.lineWidth=1.8;ctx.beginPath();for(let k=-700;k<900;k+=11){ctx.moveTo(SP_AX.x0+k,SP_AX.y0);ctx.lineTo(SP_AX.x0+k+600,SP_AX.y0-600)}ctx.stroke();
     if(ink>0){ctx.globalAlpha=ink;ctx.fillStyle=C.k;ctx.fillRect(0,0,W,H)}ctx.restore();
-    const vis=SPLIT_PTS.filter(q=>q[0]<=xNow);const k=vis.length-1;if(k>=0){const a=SPLIT_PTS[k],b=SPLIT_PTS[Math.min(k+1,SPLIT_PTS.length-1)];const ff=b[0]>a[0]?clamp((xNow-a[0])/(b[0]-a[0])):0;
-      const pts=vis.concat([[lerp(a[0],b[0],ff),lerp(a[1],b[1],ff)]]);pline(pts,1,C.k,4,{jit:.6});
-      if(lp<1){const hp=pts[pts.length-1];ctx.save();ctx.fillStyle=C.k;ctx.beginPath();ctx.arc(hp[0],hp[1],10,0,7);ctx.fill();ctx.restore()}}}
-  // points + labels appear when the line reaches them
-  LAPS.forEach((s,i)=>{const x=SP_X(i),y=spY(s);const tp=lerp(SD0,SD1,(x-SP_AX.x0)/(SP_AX.x1-SP_AX.x0));const p=P(t,tp,tp+.2);if(p<=0)return;
-    ctx.save();ctx.fillStyle=C.paper;ctx.strokeStyle=C.k;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,9*eoBack(p,2.5),0,7);ctx.fill();ctx.stroke();ctx.restore();
-    text(pace(s),x,y-(i%2?-54:26),28,F.mono,C.k,{align:'center',w:'700',alpha:p});text(lapLabel(i),x,SP_AX.y0+44,NL>6?24:28,F.wide,C.pencil,{align:'center',alpha:p})});
-  // fastest-slowest dimension (after drawing)
+    ctx.save();ctx.strokeStyle=C.k;ctx.lineWidth=3.2;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();vis.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore();
+    if(lp<1){const hp=vis[vis.length-1];ctx.save();ctx.fillStyle=C.k;ctx.beginPath();ctx.arc(hp[0],hp[1],9,0,7);ctx.fill();ctx.restore()}}
+  // 1 km averages as flat steps over each km
+  LAPS.forEach((s,i)=>{const xa=xOfD(LAPSTART[i]),xb=xOfD(LAPSTART[i]+LAPD[i]);if(xNow<xa)return;const xe=Math.min(xb,xNow);const y=spY(s);
+    const fast=s===Math.min(...LAPS),slow=s===Math.max(...LAPS);const col=fast?'#F26A1B':slow?'#1F6FEB':'rgba(17,17,17,.75)';
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=5;ctx.lineCap='butt';ctx.beginPath();ctx.moveTo(xa+3,y);ctx.lineTo(Math.max(xa+3,xe-3),y);ctx.stroke();ctx.restore();
+    const p=Math.max(P(xNow,xb-10,xb+30),P(t,SD1,SD1+.25));if(p>0){const tx=(xa+xb)/2,ty=y+(i%2?40:-14);ctx.save();ctx.globalAlpha=p;ctx.font=font(fast||slow?26:22,F.mono,'700');ctx.textAlign='center';ctx.lineJoin='round';ctx.lineWidth=8;ctx.strokeStyle=C.paper;ctx.strokeText(pace(s),tx,ty);ctx.fillStyle=fast?'#F26A1B':slow?'#1F6FEB':C.k;ctx.fillText(pace(s),tx,ty);ctx.restore()}});
+  // instantaneous max pace
+  {const mx=xOfD(DATA.maxPace?DATA.maxPace.dist:TOTAL),my=spY(MAXP);const pp=Math.max(P(xNow,mx-4,mx+40),P(t,SD1,SD1+.25));
+   if(pp>0&&MAXP<Math.min(...LAPS)-3){ctx.save();ctx.fillStyle='#F26A1B';ctx.beginPath();ctx.arc(mx,my,10*eoBack(pp,2.5),0,7);ctx.fill();ctx.restore();
+     text(`순간 최고 ${pace(MAXP)}`,mx-20,my-18,30,F.kr,'#F26A1B',{align:'right',w:'900',alpha:pp})}}
+  // fastest-slowest 1 km dimension
   const dp=P(t,SD1,SD1+.3);if(dp>0){const y1=spY(Math.max(...LAPS)),y2=spY(Math.min(...LAPS));const x=SP_AX.x1+46;pline(seg(x,y1,x,lerp(y1,y2,eo3(dp)),8),1,C.k,2.4);
-    pline(seg(x-10,y1,x+10,y1,3),1,C.k,2.4);if(dp>=1){pline(seg(x-10,y2,x+10,y2,3),1,C.k,2.4);text(dsec(Math.round(Math.max(...LAPS))-Math.round(Math.min(...LAPS))),1040,y2-22,30,F.kr,C.k,{w:'900',align:'right'})}}
+    pline(seg(x-10,y1,x+10,y1,3),1,C.k,2.4);if(dp>=1){pline(seg(x-10,y2,x+10,y2,3),1,C.k,2.4);text(dsec(Math.round(Math.max(...LAPS))-Math.round(Math.min(...LAPS))),1040,y2-22,26,F.kr,C.k,{w:'900',align:'right'})}}
   write2(SPLIT_LINE,70,540,84,C.k,P(t,8.5,9.05));
-  label(`가장 빠른 구간 ${pace(Math.min(...LAPS))}`,70,1290,C.pencil,{px:34,w:'700',alpha:P(t,8.8,9.0)});
-  label(`가장 느린 구간 ${pace(Math.max(...LAPS))}`,70,1345,C.pencil,{px:34,w:'700',alpha:P(t,8.9,9.1)});
+  label(`가장 빠른 1km ${pace(Math.min(...LAPS))}`,70,1290,'#F26A1B',{px:34,w:'700',alpha:P(t,8.8,9.0)});
+  label(`가장 느린 1km ${pace(Math.max(...LAPS))}`,70,1345,'#1F6FEB',{px:34,w:'700',alpha:P(t,8.9,9.1)});
+  if(MAXP<Math.min(...LAPS)-3)label(`순간 최고 페이스 ${pace(MAXP)}`,70,1400,'#F26A1B',{px:34,w:'900',alpha:P(t,9.0,9.2)});
   egg('fql',990,SP_AX.y0,124,t,8.9,9.5,{show:.5,filter:SKETCH});
 }
 function write2(txt,x,y,px,col,p){if(p<=0)return;ctx.save();ctx.font=font(px,F.kh);const w=ctx.measureText(txt).width;ctx.beginPath();ctx.rect(x-10,y-px*1.2,(w+20)*eio3(p),px*1.8);ctx.clip();ctx.fillStyle=col;ctx.fillText(txt,x,y);ctx.restore()}
@@ -235,7 +246,7 @@ function fig04(t){
   tile(3,t,10.6,k=>String(Math.round(INFO.avgHR*k)),'bpm','평균심박수',hrColL(INFO.avgHR));
   const cg=grow(t,10.05);wrect(CENTER.x,CENTER.y,CENTER.w,CENTER.h*cg,C.k,1,2.4);
   if(!tabHR){const bp=P(t,10.4,11.0);label('구간 페이스',CENTER.x+20,CENTER.y+44,C.k,{px:28,w:'700',alpha:bp>0?1:0});
-    LAPS.forEach((s,i)=>{const gap=NL>6?10:16,bw=Math.min(44,(326-gap*(NL-1))/NL),x=CENTER.x+32+i*(bw+gap);const hgt=lerp(60,300,(PHI-s)/(PHI-PLO))*eo3(P(t,10.4+i*.05,10.8+i*.05));const y=CENTER.y+CENTER.h-56;
+    LAPS.forEach((s,i)=>{const gap=NL>6?10:16,bw=Math.min(44,(326-gap*(NL-1))/NL),x=CENTER.x+32+i*(bw+gap);const hgt=lerp(60,300,(PHI-s)/(PHI-LPLO))*eo3(P(t,10.4+i*.05,10.8+i*.05));const y=CENTER.y+CENTER.h-56;
       const fast=s===Math.min(...LAPS);ctx.save();ctx.strokeStyle=fast?ACC.dist:C.k;ctx.lineWidth=2.2;if(fast){ctx.fillStyle=ACC.dist;ctx.fillRect(x,y-hgt,bw,hgt)}ctx.strokeRect(x,y-hgt,bw,hgt);ctx.beginPath();ctx.rect(x,y-hgt,bw,hgt);ctx.clip();ctx.globalAlpha=fast?.35:.6;ctx.strokeStyle=fast?'#fff':C.k;ctx.lineWidth=1.4;ctx.beginPath();for(let k=-bw;k<hgt+bw;k+=9){ctx.moveTo(x,y-k);ctx.lineTo(x+bw,y-k-bw)}ctx.stroke();ctx.restore();
       text(LAPD[i]>=990?`${i+1}`:(LAPD[i]/1000).toFixed(2).slice(1),x+bw/2,y+38,22,F.wide,fast?ACC.dist:C.k,{align:'center',alpha:bp});if(hgt>40&&(NL<=6||fast||s===Math.max(...LAPS)))text(pace(s),x+bw/2,y-hgt-12,20,F.mono,fast?ACC.dist:C.k,{align:'center',w:'700',alpha:bp})})}
   else{const rp=eio3(P(t,11.65,12.3));const cx=CENTER.x+CENTER.w/2,cy=CENTER.y+CENTER.h/2+16;label('심박 링',CENTER.x+20,CENTER.y+44,C.k,{px:28,w:'700'});
