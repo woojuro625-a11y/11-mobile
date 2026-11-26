@@ -10,7 +10,7 @@ const W=1080,H=1920,DUR=30;
 // ---------- editable record info (Garmin Connect title / memo are not stored in the FIT file)
 // ---------- per-run text (title / memo are not in the FIT file) + numbers from the FIT session
 const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
-  review:'10km 뛰려다가 8km까지만 아직도 근육통이 심하다 따뜻하게 입어서 그런지 다리가 힘들어서 그런지 심박수가 급상승 해버렸다 내일은 하루 더 쉬고 토요일 오전에 뛰어야지',
+  review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',   // keep the memo's own line breaks (\n)
   photos:['img/photo1.jpg','img/photo2.jpg'],
   photoEggs:[{n:'jump',x:400,y:1060,h:96},{n:'point',x:560,y:1290,h:110,flip:true}],
   capFixTitle:false};
@@ -348,9 +348,11 @@ function fig09(t){ // 18.0 - 20.0 : kinetic boxed labels per beat
 const LT0=20.0,LP=2.5;
 const RING=`${INFO.title}   ${(TOTAL/1000).toFixed(2)}KM   ${mmss(TT)}   ${pace(AVGP)}   ${INFO.avgHR}BPM   `;
 function wrapLines(txt,px,fam,w,maxW){ctx.save();ctx.font=font(px,fam,w);const words=txt.split(/\s+/);const lines=[];let cur='';for(const wd of words){const tl=cur?cur+' '+wd:wd;if(ctx.measureText(tl).width<=maxW||!cur)cur=tl;else{lines.push(cur);cur=wd}}if(cur)lines.push(cur);ctx.restore();return lines}
-const MBOX={x:90,y:1310,w:900,h:290,pad:34,head:66};
+const MBOX={x:90,y:1293,w:900,h:322,pad:34,head:66};
 function balanced(txt,px,maxW){const n=wrapLines(txt,px,F.kr,'500',maxW).length;let lo=maxW*.4,hi=maxW;for(let k=0;k<20;k++){const m=(lo+hi)/2;wrapLines(txt,px,F.kr,'500',m).length>n?lo=m:hi=m}return wrapLines(txt,px,F.kr,'500',hi)}
-const MEMO=(()=>{const box={x:MBOX.x+MBOX.pad,y:MBOX.y+MBOX.head,w:MBOX.w-MBOX.pad*2,h:MBOX.h-MBOX.head-28};for(let px=40;px>=24;px-=2){const lh=px*1.6;const lines=wrapLines(INFO.review,px,F.kr,'500',box.w);if(lines.length*lh<=box.h)return{px,lh,lines:balanced(INFO.review,px,box.w),box}}const px=24,lh=px*1.6;return{px,lh,lines:wrapLines(INFO.review,px,F.kr,'500',box.w).slice(0,Math.floor(box.h/lh)),box}})();
+// memo keeps the writer's own line breaks; a line longer than the box wraps inside itself
+function memoLines(px,maxW){const out=[];String(INFO.review).split('\n').map(x=>x.trim()).filter(Boolean).forEach(par=>{const n=wrapLines(par,px,F.kr,'500',maxW).length;if(n<=1){out.push(par);return}out.push(...balanced(par,px,maxW))});return out}
+const MEMO=(()=>{const box={x:MBOX.x+MBOX.pad,y:MBOX.y+MBOX.head,w:MBOX.w-MBOX.pad*2,h:MBOX.h-MBOX.head-24};for(let px=40;px>=22;px-=1){const lh=px*1.5;const lines=memoLines(px,box.w);if(lines.length*lh<=box.h)return{px,lh,lines,box}}const px=22,lh=px*1.5;return{px,lh,lines:memoLines(px,box.w).slice(0,Math.floor(box.h/lh)),box}})();
 function fig10(t){
   const ph=((t-LT0)/LP)%1;const cx=540,cy=560,r=150;const yaw=(t-LT0)/(LP*2)*Math.PI*2;const tilt=.35;
   const sp=eo3(P(t,20.0,20.6));
@@ -377,7 +379,7 @@ function fig10(t){
   const ST=[['총 거리',(TOTAL/1000).toFixed(2),'km'],['달린시간',mmss(TT),''],['평균페이스',pace(AVGP),'/km'],['평균심박수',String(INFO.avgHR),'bpm'],['최대심박수',String(INFO.maxHR),'bpm'],['칼로리',String(INFO.kcal),'kcal']];
   ST.forEach((s,i)=>{const c=i%3,rw=Math.floor(i/3);const x=90+c*310,y=990+rw*150;const p=P(t,20.75+i*.06,21.05+i*.06);if(p<=0)return;
     ctx.save();ctx.globalAlpha=p;ctx.translate(0,(1-eo3(p))*30);label(s[0],x,y+40,'rgba(255,255,255,.6)',{px:24});text(s[1],x,y+112,64,F.wide,(i===3||i===4)?hrColD(+s[1]):C.white);if(s[2])text(s[2],x+tw(s[1],64,F.wide)+8,y+112,22,F.kr,C.mint,{w:'700'});ctx.restore()});
-  line(90,1300,990,1300,'rgba(63,224,181,.35)',1.5,eo3(P(t,21.0,21.3)));
+  line(90,1280,990,1280,'rgba(63,224,181,.35)',1.5,eo3(P(t,21.0,21.3)));
   // memo box
   const M=MEMO;const mp=P(t,21.1,21.35);ctx.save();ctx.globalAlpha=mp;ctx.strokeStyle=C.mint;ctx.lineWidth=2;ctx.strokeRect(MBOX.x,MBOX.y,MBOX.w,MBOX.h);ctx.globalAlpha=mp*.4;ctx.beginPath();ctx.moveTo(MBOX.x+MBOX.pad,MBOX.y+MBOX.head-14);ctx.lineTo(MBOX.x+MBOX.w-MBOX.pad,MBOX.y+MBOX.head-14);ctx.stroke();ctx.restore();
   label('러닝 메모',MBOX.x+MBOX.pad,MBOX.y+38,C.mint,{px:26,w:'700',alpha:mp});
