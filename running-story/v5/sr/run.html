@@ -1,0 +1,7 @@
+<!doctype html><html><body style="margin:0;background:transparent">
+<canvas id="c"></canvas>
+<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script>
+<script>
+let sr;window.ready=(async()=>{sr=await StarRunner.create(document.getElementById('c'),{style:'toon',outline:0.016,antialias:true,pixelRatio:1});})();
+window.frame=async(clip,t,azim)=>{await window.ready;sr.draw({clip,t},{px:220,azim,elev:0.1});return document.getElementById('c').toDataURL('image/png')};
+</script></body></html>
