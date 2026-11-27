@@ -81,29 +81,21 @@ const BREAK_LINE=BRK.length?`중간에 ${BRK.length}번 멈춤 ${dsec(BRK.reduce
 const SK=Math.min(NL-1,Math.floor(MAXD/1000));
 const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
 
-// ---------- backdrop: brick wall, graffiti blobs and drips, fire escapes, a street lamp; a boombox whose cones thump on the kick
-const WALL=document.createElement('canvas');WALL.width=W;WALL.height=H;
-function buildWall(){const g=WALL.getContext('2d');g.fillStyle='#1E1512';g.fillRect(0,0,W,H);
-  const bw=118,bh=46;for(let r=0;r*bh<H;r++)for(let c=-1;c*bw<W+bw;c++){const x=c*bw+(r%2?bw/2:0),y=r*bh,k=rnd(r*31+c*7);
-    g.fillStyle=`rgb(${Math.round(92+38*k)},${Math.round(44+14*k)},${Math.round(34+10*k)})`;g.fillRect(x+3,y+3,bw-6,bh-6);
-    g.fillStyle='rgba(0,0,0,.18)';g.fillRect(x+3,y+bh-10,bw-6,7)}
-  for(let i=0;i<26000;i++){g.fillStyle=rnd(i*1.3)>.5?'rgba(255,255,255,.03)':'rgba(0,0,0,.16)';g.fillRect(rnd(i*2.9)*W,rnd(i*4.1+2)*H,2,2)}
-  // graffiti: soft spray blobs with drips (abstract, no words)
-  [[120,1500,150,'255,95,162'],[970,1440,160,'91,184,255'],[560,1610,170,'255,201,60'],[110,520,100,'79,209,139'],[980,600,110,'232,67,58']].forEach(([x,y,r,c],i)=>{
-    for(let j=0;j<5;j++){const a=rnd(i*9+j)*6.3,d=r*.45*rnd(i*5+j+1);const gr=g.createRadialGradient(x+Math.cos(a)*d,y+Math.sin(a)*d,0,x+Math.cos(a)*d,y+Math.sin(a)*d,r*(.6+.3*rnd(j+i)));
-      gr.addColorStop(0,`rgba(${c},.34)`);gr.addColorStop(.7,`rgba(${c},.14)`);gr.addColorStop(1,`rgba(${c},0)`);g.fillStyle=gr;g.fillRect(x-r*2,y-r*2,r*4,r*4)}
-    g.fillStyle=`rgba(${c},.3)`;for(let j=0;j<5;j++){const dx=x+(rnd(i*13+j)-.5)*r*1.4,len=40+rnd(i*17+j)*140;g.fillRect(dx,y+r*.3,5,len);g.beginPath();g.arc(dx+2.5,y+r*.3+len,5,0,7);g.fill()}});
-  // fire escapes (dark iron) on the upper wall
-  g.strokeStyle='#121214';g.fillStyle='#121214';g.lineWidth=7;[[0,250,330],[760,330,320]].forEach(([x0,y0,w])=>{for(let k=0;k<2;k++){const y=y0+k*300;
-    g.fillRect(x0,y,w,10);g.lineWidth=4;for(let x=x0+6;x<x0+w;x+=22){g.beginPath();g.moveTo(x,y);g.lineTo(x,y-70);g.stroke()}g.fillRect(x0,y-74,w,6);
-    g.lineWidth=6;g.beginPath();g.moveTo(x0+(x0?30:w-40),y+10);g.lineTo(x0+(x0?w-60:60),y+300);g.stroke();for(let q=1;q<9;q++){const u=q/9;const xa=lerp(x0+(x0?30:w-40),x0+(x0?w-60:60),u);g.beginPath();g.moveTo(xa-18,y+10+290*u);g.lineTo(xa+18,y+10+290*u);g.stroke()}}});
-  // ground: dark asphalt with a puddle shine
-  const gg=g.createLinearGradient(0,1640,0,H);gg.addColorStop(0,'rgba(10,8,8,.0)');gg.addColorStop(.15,'rgba(10,8,8,.88)');gg.addColorStop(1,'#0B0909');g.fillStyle=gg;g.fillRect(0,1640,W,H-1640);
-  const v=g.createRadialGradient(540,800,300,540,960,1250);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.62)');g.fillStyle=v;g.fillRect(0,0,W,H)}
-function bg(t,{dim=0}={}){ctx.drawImage(WALL,0,0);
-  const lx=540,ly=-40;const k=.30+.05*kickP(t,.2)*Math.min(1,loudAt(t)*3);const g=ctx.createRadialGradient(lx,ly,0,lx,ly,1100);   // street lamp from above
-  g.addColorStop(0,`rgba(255,196,110,${k})`);g.addColorStop(.5,`rgba(255,170,80,${k*.35})`);g.addColorStop(1,'rgba(255,170,80,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(dim>0){ctx.fillStyle=`rgba(12,8,7,${dim})`;ctx.fillRect(0,0,W,H)}}
+// ---------- backdrop: a cinematic photo of a back alley at night (wet asphalt, graffiti, fire escapes, steam), slowly pushing in;
+// the street lamp breathes a little with the kick, steam drifts from the manhole, film grain; data scenes use a blurred darker copy (depth of field)
+const BGI={sharp:new Image(),blur:new Image()};BGI.sharp.src='img/alley.jpg';BGI.blur.src='img/alley_blur.jpg';
+const GRAIN=document.createElement('canvas');GRAIN.width=540;GRAIN.height=960;
+function buildWall(){const g=GRAIN.getContext('2d');const id=g.createImageData(540,960);for(let i=0;i<id.data.length;i+=4){const v=128+(rnd(i*.37)-.5)*120;id.data[i]=id.data[i+1]=id.data[i+2]=v;id.data[i+3]=255}g.putImageData(id,0,0)}
+function bg(t,{dim=0}={}){const im=dim>0?BGI.blur:BGI.sharp;const s=1+.045*t/30;const fx=540,fy=860;
+  ctx.save();ctx.translate(fx,fy);ctx.scale(s,s);ctx.drawImage(im,-fx-54,-fy-96,1188,2112);ctx.restore();
+  const lx=640,ly=228,k=.16+.1*kickP(t,.18)*Math.min(1,loudAt(t)*3)+.03*Math.sin(t*23)*Math.sin(t*3.1);
+  const g=ctx.createRadialGradient(lx,ly,0,lx,ly,420);g.addColorStop(0,`rgba(255,190,110,${k})`);g.addColorStop(1,'rgba(255,190,110,0)');ctx.fillStyle=g;ctx.fillRect(lx-420,ly-420,840,840);
+  for(let i=0;i<14;i++){const life=((t*.22+i/14)%1),x=520+Math.sin(i*2.1+t*.4)*40+life*60*(rnd(i)-.3),y=1000-life*520,r=60+life*170;   // steam
+    const a=(dim>0?.04:.075)*Math.sin(Math.PI*life);const sg=ctx.createRadialGradient(x,y,0,x,y,r);sg.addColorStop(0,`rgba(235,235,240,${a})`);sg.addColorStop(1,'rgba(235,235,240,0)');ctx.fillStyle=sg;ctx.fillRect(x-r,y-r,r*2,r*2)}
+  if(dim>0){ctx.fillStyle=`rgba(8,8,10,${dim*.55})`;ctx.fillRect(0,0,W,H)}
+  else{const sc=ctx.createLinearGradient(0,0,0,640);sc.addColorStop(0,'rgba(6,6,8,.72)');sc.addColorStop(1,'rgba(6,6,8,0)');ctx.fillStyle=sc;ctx.fillRect(0,0,W,640)}   // a soft scrim so the titles read over the lamp
+  const v=ctx.createRadialGradient(540,900,500,540,960,1250);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.55)');ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.globalAlpha=.07;ctx.globalCompositeOperation='overlay';ctx.drawImage(GRAIN,-Math.floor(rnd(Math.floor(t*30))*200),-Math.floor(rnd(Math.floor(t*30)+7)*300),1080+200,1920+300);ctx.restore()}
 function boombox(x,y,w,t){const h=w*.56,k=kickP(t,.12)*Math.min(1,loudAt(t)*3+.2);
   ctx.save();ctx.strokeStyle='#C9CCD2';ctx.lineWidth=w*.03;ctx.beginPath();ctx.moveTo(x+w*.22,y);ctx.lineTo(x+w*.22,y-h*.22);ctx.lineTo(x+w*.78,y-h*.22);ctx.lineTo(x+w*.78,y);ctx.stroke();
   ctx.fillStyle='#2E3138';rr(x,y,w,h,w*.06);ctx.fill();ctx.fillStyle='#41454E';rr(x+w*.03,y+h*.05,w*.94,h*.16,w*.03);ctx.fill();
@@ -114,8 +106,8 @@ function boombox(x,y,w,t){const h=w*.56,k=kickP(t,.12)*Math.min(1,loudAt(t)*3+.2
   ctx.fillStyle='#E8E2D4';ctx.beginPath();ctx.arc(x+w*.45,y+h*.53,h*.04,0,7);ctx.arc(x+w*.55,y+h*.53,h*.04,0,7);ctx.fill();
   for(let i=0;i<6;i++){const on=loudAt(t)*6*(1+.4*k)>i;ctx.fillStyle=on?(i>3?C.red:i>2?C.amber:C.green):'#20232A';ctx.fillRect(x+w*.06+i*w*.045,y+h*.09,w*.035,h*.08)}
   ctx.restore()}
-function header(t,t0,title,sub){echo(t,t0,()=>{ctx.save();ctx.translate(90,250);ctx.rotate(-.025);const w=tw(title,74,F.kd)+44;ctx.fillStyle=C.amber;rr(-22,-70,w,92,10);ctx.fill();tx(title,0,0,74,F.kd,'#1A1210');ctx.restore()});
-  tx(sub,92,320,26,F.kr,C.cream,{w:'700',a:P(t,t0+.2,t0+.4)})}
+function header(t,t0,title,sub){echo(t,t0,()=>{tx(title,90,250,74,F.kd,C.cream);const w=tw(title,74,F.kd);ctx.fillStyle=C.amber;ctx.fillRect(92,272,Math.min(w,90+w*eo3(P(t,t0,t0+.4))),6)});
+  tx(sub,92,326,26,F.kr,C.dim,{w:'700',a:P(t,t0+.2,t0+.4)})}
 
 // ---------- Star Runner, hip-hop head (live 3D, red bandana + gold chain): hands pump down on every beat, hard head nod, knees bounce.
 // A different move every bar (both hands / alternating / lean with one hand / side rock), every joint on smooth curves, moves blend at the bar line; waves goodbye at the end
@@ -142,7 +134,7 @@ function dancer(t,cx,feetY,sc,{alpha=1}={}){if(!DR)return;const [gw,gh]=DR.size;
   ctx.save();ctx.globalAlpha*=alpha;ctx.drawImage(GLC,cx-gw*k/2,y0,gw*k,gh*k);ctx.restore()}
 
 // ---------- 0 ~ T1: the alley at night, a boombox on the ground, the title, photos pasted on the brick like posters on the offbeats
-function sceneIntro(t){bg(t);boombox(640,1560,340,t);
+function sceneIntro(t){bg(t);
   const b=BT;echo(t,b[0],()=>tx('오늘의 러닝',540,180,40,F.kd,C.amber,{al:'center'}));
   echo(t,b[1],()=>tx(RUN.title,540,370,150,F.kd,C.cream,{al:'center'}));
   echo(t,b[2]+BPER/2,()=>{tx(RUN.memo,540,450,40,F.kd,C.amber,{al:'center'});tx(S.dateLong,540,505,30,F.kr,C.dim,{al:'center',w:'500'})});
@@ -150,7 +142,7 @@ function sceneIntro(t){bg(t);boombox(640,1560,340,t);
     echo(t,t0,()=>{ctx.save();ctx.translate(cx,cy+(i?0:0));ctx.rotate(rot);const chop=1+.012*offP(t);ctx.scale(chop,chop);ctx.fillStyle=C.cream;ctx.fillRect(-w/2-14,-h/2-14,w+28,h+80);
       const s=Math.max(w/im.width,h/im.height);const sw=w/s,sh=h/s;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,-w/2,-h/2,w,h);
       [[-w/2+30,-h/2-14],[w/2-30,-h/2-14]].forEach(([x,y])=>{ctx.fillStyle='rgba(230,225,210,.75)';ctx.save();ctx.translate(x,y);ctx.rotate(.5);ctx.fillRect(-40,-12,80,24);ctx.restore()});tx(RUN.photoCaps[i]||'',0,h/2+52,44,F.pen,'#1A1410',{al:'center'});ctx.restore()})});
-  dancer(t,400,1745,.55)}
+  dancer(t,540,1760,.62)}
 
 // ---------- T1 ~ T2: the whole Garmin capture (never zoomed or covered) with echoing labels
 const CAP={w:1080,h:1483};
@@ -221,14 +213,13 @@ function memoStyle(){const COL={num:C.amber,body:C.red,plan:C.green,feel:C.blue,
       else{c.save();c.fillStyle=C.cream;c.fillRect(x,y+9,w*k,3);c.restore()}}}}
 let ML=null;
 function sceneLoop(t){bg(t);const lb=beatsFrom(T5,16);
-  boombox(50,700,320,t);
   echo(t,T5,()=>tx('오늘의 러닝',90,150,36,F.kd,C.amber));
   echo(t,T5+BPER/2,()=>tx(RUN.title,90,265,112,F.kd,C.cream));
   echo(t,lb[1]+BPER/2,()=>{ctx.save();ctx.translate(870,215);ctx.rotate(-.12);ctx.fillStyle='rgba(20,14,12,.55)';ctx.beginPath();ctx.arc(0,0,76,0,7);ctx.fill();ctx.strokeStyle=C.amber;ctx.lineWidth=6;ctx.beginPath();ctx.arc(0,0,72,0,7);ctx.stroke();ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,0,60,0,7);ctx.stroke();tx('완주',0,14,44,F.kd,C.amber,{al:'center'});ctx.restore()},{dx:14,dy:6});
-  dancer(t,640,875,.95);
+  dancer(t,540,880,.95);
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.amber],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.cream]];
-  echo(t,lb[2],()=>{ctx.fillStyle='rgba(20,14,12,.6)';rr(70,905,940,268,20);ctx.fill()});
+  echo(t,lb[2],()=>{ctx.fillStyle='rgba(10,10,12,.62)';rr(70,905,940,268,20);ctx.fill();ctx.strokeStyle='rgba(246,241,231,.12)';ctx.lineWidth=2;rr(70,905,940,268,20);ctx.stroke()});
   CR.forEach(([l,v,u,c],i)=>{const t0=lb[2]+BPER/2*i;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=955+row*130;
     echo(t,t0,()=>{tx(l,cx,y,26,F.kr,C.dim,{al:'center',w:'700'});const vw=tw(v,56,F.slab),uw=u?tw(u,22,F.kr,'700')+6:0;tx(v,cx-uw/2,y+66,56,F.slab,c,{al:'center'});if(u)tx(u,cx-uw/2+vw/2+6,y+64,22,F.kr,C.dim,{w:'700'})},{dx:14,dy:0,n:2})});
   const mt=lb[6];echo(t,mt,()=>{const x=70,y=1250,w=940,h=430;ctx.fillStyle='rgba(20,16,12,.65)';rr(x,y,w,h,24);ctx.fill();ctx.strokeStyle='rgba(242,177,52,.5)';ctx.lineWidth=2;rr(x,y,w,h,24);ctx.stroke();
@@ -250,7 +241,7 @@ function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='n
   else SCENES[k][1](t);
   const fi=1-P(t,0,.5);if(fi>0){ctx.fillStyle=`rgba(26,18,16,${fi})`;ctx.fillRect(0,0,W,H)}}
 window.render=render;window.DUR=DUR;
-(async()=>{buildWall();await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
+(async()=>{buildWall();await Promise.all([...Object.values(IMG),...PHOTOS,BGI.sharp,BGI.blur].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
   const fams=[[F.slab,''],[F.kd,''],[F.kr,'500'],[F.kr,'700'],[F.kr,'900'],[F.pen,'']];
   await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;
   GLC=document.createElement('canvas');DR=await HipHop3D.init(GLC,{px:DPX});window.READY=true;
