@@ -5,6 +5,7 @@
 <script src="data.js"></script>
 <script src="beat.js"></script>
 <script src="drums.js"></script>
+<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script><script src="drummer3d.js"></script>
 </head><body>
 <canvas id="c" width="1080" height="1920"></canvas>
 <script>
@@ -79,17 +80,32 @@ const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼�
 
 
 // ---------- Star Runner on a marching snare (3D model frames: 6 stick heights per hand, cell 600x660)
-const DLV=[0,.2,.4,.6,.8,1],DCW=600,DCH=660,DHIT=[292,522];                 // DHIT = where the sticks land on the head (cell px)
-function drumPose(t){const i=SN.findIndex(h=>h[0]>t);const prev=i<0?SN[SN.length-1]:SN[i-1],next=i<0?null:SN[i];
-  const hand=k=>k%2;let act=-1,h=.6;
-  if(prev&&t-prev[0]<.16){act=hand(SN.indexOf(prev));h=lerp(0,.6,(t-prev[0])/.16)}
-  else if(next&&next[0]-t<.2){act=hand(i);const u=(next[0]-t)/.2,pk=.8+.2*next[1];h=u>.45?lerp(pk,.6,(u-.45)/.55):lerp(0,pk,u/.45)}
-  const lv=DLV.reduce((b,v,j)=>Math.abs(v-h)<Math.abs(DLV[b]-h)?j:b,0);return act<0?3:act===0?lv:6+lv}
-function drummer(t,cx,top,sc,{alpha=1,badge=''}={}){const f=drumPose(t);const im=IMG.drummer;const k=kkP(t);const sq=1-.03*k;
-  ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,top+DCH*sc);ctx.scale(1+.02*k,sq);ctx.drawImage(im,(f%4)*DCW,Math.floor(f/4)*DCH,DCW,DCH,-DCW*sc/2,-DCH*sc,DCW*sc,DCH*sc);ctx.restore();
-  const hx=cx+(DHIT[0]-DCW/2)*sc,hy=top+DHIT[1]*sc;const hit=snP(t,.12);
+// ---------- Star Runner drumming, rendered live from the 3D model every frame (drummer3d.js)
+// excitement builds through the song: head nods get deeper, sticks go higher, and big jump-and-slam hits start and get more frequent
+const DPX=360,REF=240;let DR=null,GLC=null;const lastOf=(arr,t)=>{let r=-1e9;for(const x of arr){if(x<=t)r=x;else break}return r};
+const EXC=t=>t>=T5?.9:clamp(.3+.7*t/15.9);
+const JUMPS=(()=>{const out=[];DB.forEach((d,bi)=>{const e=EXC(d);if(e<.45||d<T1)return;if(e<.75&&bi%2)return;
+  const hs=SN.filter(h=>h[0]>d+BPER*1.5&&h[0]<d+4*BPER-.05&&h[1]>.75);if(hs.length)out.push(hs[hs.length-1][0])});return out})();
+const jumpAt=t=>JUMPS.find(j=>t>=j-.45&&t<j+.35);
+const jumpP=t=>{const j=JUMPS.filter(x=>x<=t).pop();return j!==undefined&&t-j<1?Math.exp(-(t-j)/.1):0};
+function drumState(t){const e=EXC(t);const lb=lastOf(BT,t);const ph=clamp((t-lb)/BPER);
+  const nod=(10+20*e)*Math.pow(1-ph,2.2)-(6+12*e)*Math.sin(Math.PI*ph);             // big nod down on every beat, lift between
+  const o={head:nod,bob:-.04*e*Math.pow(1-ph,3),squash:1-.035*e*Math.pow(1-ph,3),lean:5*e*Math.pow(1-ph,2),yaw:Math.sin(t*1.4)*7*e,hR:.6,hL:.6};
+  // alternating hands on the snare hits: wind up (higher when harder / more excited), strike on the hit, bounce back
+  const i=SN.findIndex(h=>h[0]>t);const prev=i<0?SN[SN.length-1]:SN[i-1],next=i<0?null:SN[i];
+  const set=(k,h)=>{if(k%2)o.hL=h;else o.hR=h};
+  if(prev&&t-prev[0]<.16)set(SN.indexOf(prev),lerp(0,.6,(t-prev[0])/.16));
+  else if(next&&next[0]-t<.24){const u=(next[0]-t)/.24,pk=Math.min(1.5,.8+.2*next[1]+.55*e);set(i,u>.45?lerp(pk,.6,(u-.45)/.55):lerp(0,pk,u/.45))}
+  // jump and slam: crouch, leap with both arms overhead, both sticks crash down on the hit, land low
+  const J=jumpAt(t);if(J!==undefined){const u=t-J;const Hh=.35+.3*e;
+    if(u<-.33){const k=(u+.45)/.12;o.squash=1-.1*k;o.bob=-.05*k;o.hR=o.hL=lerp(.6,1.6,k);o.head=lerp(o.head,-12,k)}
+    else if(u<0){const k=(u+.33)/.33;o.bob=Hh*4*k*(1-k);o.squash=1+.06*Math.sin(Math.PI*k);o.hR=o.hL=k<.72?1.6:lerp(1.6,0,(k-.72)/.28);o.head=k<.72?-22:lerp(-22,18,(k-.72)/.28);o.lean=k<.72?-6:8}
+    else{const k=u/.35;o.squash=1-.12*Math.exp(-u/.07);o.bob=-.05*Math.exp(-u/.09);o.hR=o.hL=lerp(0,.6,eo3(k));o.head=20*Math.exp(-u/.16);o.lean=8*(1-k)}}
+  return o}
+function drummer(t,cx,top,sc,{alpha=1}={}){const k=sc*REF/DPX,[gw,gh]=DR.size;const feetY=top+614*sc;const y0=feetY-gh*.88*k;
+  ctx.save();ctx.globalAlpha*=alpha;ctx.drawImage(GLC,cx-gw*k/2,y0,gw*k,gh*k);ctx.restore();
+  const hx=cx+(DR.hitPx[0]-gw/2)*k,hy=y0+DR.hitPx[1]*k;const hit=Math.max(snP(t,.12),jumpP(t));
   if(hit>.02){ctx.save();ctx.globalAlpha*=alpha;ctx.translate(hx,hy);ctx.scale(1,.42);for(let j=0;j<3;j++){ctx.strokeStyle=`rgba(255,45,58,${.55*hit})`;ctx.lineWidth=5*sc+1;ctx.beginPath();ctx.arc(0,0,(20+(1-hit)*120+j*26)*sc,0,7);ctx.stroke()}ctx.restore()}
-  if(badge)tx(badge,cx-6*sc,top+590*sc,28*sc,F.kd,'#fff',{al:'center',a:alpha});
   return[hx,hy]}
 
 // ---------- (old top-view drum, kept for reference)
@@ -221,17 +237,18 @@ function memoLayout(maxW,maxLines){for(let px=50;px>=38;px-=2){if(MEMO.length<=m
     if(lines.length<=maxLines)return{px,lines}}return{px:28,lines:MEMO.slice(0,maxLines)}}
 let ML=null;
 function sceneLoop(t){const lb=beatsFrom(T5,12);
-  tx('오늘의 러닝',540,150,40,F.kd,C.red,{al:'center',a:t>=T5?1:0});
-  slamTx(t,T5,RUN.title,540,270,116,F.kd,C.white,{al:'center'});
-  const hp=drummer(t,540,215,1.08,{badge:'완주'});shock(t,hp[0],hp[1],620);
+  tx('오늘의 러닝',90,150,36,F.kd,C.red,{a:t>=T5?1:0});
+  slamTx(t,T5,RUN.title,90,262,110,F.kd,C.white);
+  if(t>=lb[1]){const k=slamIn(t,lb[1]);ctx.save();ctx.translate(90+tw(RUN.title,110,F.kd)+110,226);ctx.scale(k,k);tapeLabel(0,0,'완주',{px:44,rot:-.06});ctx.restore()}
+  const hp=drummer(t,540,316,1.0);shock(t,hp[0],hp[1],620);
   
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.orange],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.white]];
-  ctx.fillStyle=C.faint;ctx.fillRect(90,940,900,2);
-  CR.forEach(([l,v,u,c],i)=>{const t0=lb[1]+BPER/2*i;if(t<t0)return;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=990+row*128;
+  
+  CR.forEach(([l,v,u,c],i)=>{const t0=lb[1]+BPER/2*i;if(t<t0)return;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=1030+row*124;
     tx(l,cx,y,26,F.kr,C.dim,{al:'center',w:'700'});const vw=tw(v,68,F.num),uw=u?tw(u,24,F.kr,'700')+6:0;slamTx(t,t0,v,cx-uw/2,y+78,68,F.num,c,{al:'center'});if(u)tx(u,cx-uw/2+vw/2+6,y+76,24,F.kr,C.dim,{w:'700'})});
   // setlist paper
-  const pt=lb[5];if(t>=pt){const k=slamIn(t,pt);const px0=90,py0=1235,pw=900,ph=420;ctx.save();ctx.translate(540,py0+ph/2);ctx.scale(k,k);ctx.rotate(-.012);ctx.translate(-540,-(py0+ph/2));
+  const pt=lb[5];if(t>=pt){const k=slamIn(t,pt);const px0=90,py0=1272,pw=900,ph=395;ctx.save();ctx.translate(540,py0+ph/2);ctx.scale(k,k);ctx.rotate(-.012);ctx.translate(-540,-(py0+ph/2));
     ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=24;ctx.fillStyle='#F2F1EC';ctx.fillRect(px0,py0,pw,ph);ctx.shadowColor='transparent';
     [[px0+70,py0],[px0+pw-70,py0]].forEach(([x,y],i)=>{ctx.save();ctx.translate(x,y);ctx.rotate(i?.3:-.3);ctx.fillStyle='rgba(30,30,30,.85)';ctx.fillRect(-60,-18,120,36);ctx.restore()});   // gaffer tape
     tx('SETLIST',px0+40,py0+66,26,F.mono,C.red,{w:'700',ls:6});tx('러닝 메모',px0+pw-40,py0+66,30,F.kd,'#111',{al:'right'});ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(px0+40,py0+86,pw-80,2);
@@ -241,17 +258,18 @@ function sceneLoop(t){const lb=beatsFrom(T5,12);
 // ---------- timeline
 const SCENES=[[0,sceneOpen],[T1,sceneCapture],[T2,sceneSplits],[T3,sceneWave],[T4,sceneZones],[T5,sceneLoop]];
 function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
-  const sh=snP(t,.06)*12;const kp=1+.018*kkP(t);
+  if(DR)DR.draw(drumState(t));
+  const sh=snP(t,.06)*12+jumpP(t)*22;const kp=1+.018*kkP(t)+.02*jumpP(t);
   ctx.translate(540,960);ctx.scale(kp,kp);ctx.translate(-540+(rnd(Math.floor(t*60))-.5)*sh,-960+(rnd(Math.floor(t*60)+7)-.5)*sh);
   let k=0;SCENES.forEach(([s],i)=>{if(t>=s)k=i});
   const s0=SCENES[k][0];if(k>0&&t<s0+.09){ctx.save();ctx.translate(-(1-P(t,s0,s0+.09))*W*.15,0);SCENES[k][1](t);ctx.restore()}else SCENES[k][1](t);
   ctx.setTransform(1,0,0,1,0,0);drumLane(t,t>=DB[0]?1:0);
-  const fl=snP(t,.05);if(fl>.02){ctx.fillStyle=`rgba(255,255,255,${.13*fl})`;ctx.fillRect(0,0,W,H)}
+  const fl=Math.max(snP(t,.05)*.13,jumpP(t)*.26);if(fl>.005){ctx.fillStyle=`rgba(255,255,255,${fl})`;ctx.fillRect(0,0,W,H)}
   if(inCut(t)){ctx.fillStyle='rgba(0,0,0,.9)';ctx.fillRect(0,0,W,H)}                                       // the song's silent cuts: the stage goes dark
   const vg=ctx.createRadialGradient(540,900,500,540,960,1250);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.55)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H)}
 window.render=render;window.DUR=DUR;
 (async()=>{await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
   const fams=[[F.kd,''],[F.num,''],[F.kr,'700'],[F.kr,'900'],[F.mono,'700'],[F.pen,'']];
-  await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;window.READY=true;
+  await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;GLC=document.createElement('canvas');DR=await Drummer3D.init(GLC,{px:DPX});window.READY=true;
   const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}})();
 </script></body></html>

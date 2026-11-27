@@ -125,7 +125,7 @@
       return { w, h, feetX: w / 2, feetY: h * FEET };
     }
     function worldOf(name) { const v = new THREE.Vector3(); nodes[KEY(name)].getWorldPosition(v); return v; }
-    return { draw, applyPose, sample, nodes, clips, worldOf, renderer, durations: Object.fromEntries(Object.entries(clips).map(([k, c]) => [k, c.duration])) };
+    return { draw, applyPose, sample, nodes, clips, worldOf, renderer, cam, durations: Object.fromEntries(Object.entries(clips).map(([k, c]) => [k, c.duration])) };
   }
   /* ---- motion adapter (same call style as the older Char3D.motions) ----
      Clips come from the GLB (Run is contralateral: left foot forward = right hand forward, verified).

@@ -1,6 +1,6 @@
 const {chromium}=require('playwright');const {spawn}=require('child_process');const fs=require('fs');
 const [,,mode,arg,out]=process.argv;const B=__dirname+'/../story.html';
-(async()=>{const br=await chromium.launch();const pg=await br.newPage({viewport:{width:1080,height:1920},deviceScaleFactor:1});
+(async()=>{const br=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});const pg=await br.newPage({viewport:{width:1080,height:1920},deviceScaleFactor:1});
 pg.on('console',m=>console.log('PAGE',m.text()));pg.on('pageerror',e=>console.log('ERR',e.message));
 await pg.goto('file://'+B+'?t=0');await pg.waitForFunction('window.READY===true');
 const shot=async t=>{await pg.evaluate(t=>window.render(t),t);return pg.screenshot({type:'png'})};
