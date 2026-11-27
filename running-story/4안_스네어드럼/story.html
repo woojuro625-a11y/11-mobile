@@ -50,7 +50,7 @@ const T1=nearDB(3.2),T2=nearDB(7.4),T3=nearDB(11.65),TJ=nearDB(13.8),T4=nearDB(1
 const SNin=(a,b)=>SN.filter(h=>h[0]>=a-.01&&h[0]<b-.01).map(h=>h[0]);   // snare hits inside a span
 
 // ---------- images
-const IMG={};['garmin','front','wave'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
+const IMG={};['garmin','front','wave','drummer'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
 const PHOTOS=RUN.photos.map(src=>{const im=new Image();im.src=src;return im});
 function drawImg(n,cx,by,h,{rot=0,sx=1,alpha=1}={}){const im=IMG[n];const w=im.width*h/im.height;
   ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,by);ctx.rotate(rot);ctx.scale(sx,1);ctx.drawImage(im,-w/2,-h,w,h);ctx.restore()}
@@ -77,7 +77,22 @@ const MEMO=RUN.review.split('\n').map(s=>s.trim()).filter(Boolean);
 const SK=Math.min(NL-1,Math.floor(MAXD/1000));
 const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
 
-// ---------- the snare drum (top view) + stick
+
+// ---------- Star Runner on a marching snare (3D model frames: 6 stick heights per hand, cell 600x660)
+const DLV=[0,.2,.4,.6,.8,1],DCW=600,DCH=660,DHIT=[292,522];                 // DHIT = where the sticks land on the head (cell px)
+function drumPose(t){const i=SN.findIndex(h=>h[0]>t);const prev=i<0?SN[SN.length-1]:SN[i-1],next=i<0?null:SN[i];
+  const hand=k=>k%2;let act=-1,h=.6;
+  if(prev&&t-prev[0]<.16){act=hand(SN.indexOf(prev));h=lerp(0,.6,(t-prev[0])/.16)}
+  else if(next&&next[0]-t<.2){act=hand(i);const u=(next[0]-t)/.2,pk=.8+.2*next[1];h=u>.45?lerp(pk,.6,(u-.45)/.55):lerp(0,pk,u/.45)}
+  const lv=DLV.reduce((b,v,j)=>Math.abs(v-h)<Math.abs(DLV[b]-h)?j:b,0);return act<0?3:act===0?lv:6+lv}
+function drummer(t,cx,top,sc,{alpha=1,badge=''}={}){const f=drumPose(t);const im=IMG.drummer;const k=kkP(t);const sq=1-.03*k;
+  ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,top+DCH*sc);ctx.scale(1+.02*k,sq);ctx.drawImage(im,(f%4)*DCW,Math.floor(f/4)*DCH,DCW,DCH,-DCW*sc/2,-DCH*sc,DCW*sc,DCH*sc);ctx.restore();
+  const hx=cx+(DHIT[0]-DCW/2)*sc,hy=top+DHIT[1]*sc;const hit=snP(t,.12);
+  if(hit>.02){ctx.save();ctx.globalAlpha*=alpha;ctx.translate(hx,hy);ctx.scale(1,.42);for(let j=0;j<3;j++){ctx.strokeStyle=`rgba(255,45,58,${.55*hit})`;ctx.lineWidth=5*sc+1;ctx.beginPath();ctx.arc(0,0,(20+(1-hit)*120+j*26)*sc,0,7);ctx.stroke()}ctx.restore()}
+  if(badge)tx(badge,cx-6*sc,top+590*sc,28*sc,F.kd,'#fff',{al:'center',a:alpha});
+  return[hx,hy]}
+
+// ---------- (old top-view drum, kept for reference)
 function snareDrum(cx,cy,r,t,{title='',sub='',alpha=1}={}){const hit=snP(t,.12);ctx.save();ctx.globalAlpha*=alpha;
   ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=r*.15;const g=ctx.createLinearGradient(cx-r,cy-r,cx+r,cy+r);g.addColorStop(0,'#E9EAEC');g.addColorStop(.45,'#7C7F86');g.addColorStop(.55,'#C9CBD0');g.addColorStop(1,'#5A5D63');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r*1.08,0,7);ctx.fill();ctx.shadowColor='transparent';
@@ -105,7 +120,7 @@ function slamIn(t,t0){if(t<t0)return null;const p=P(t,t0,t0+.08);return 1+.25*(1
 function tapeLabel(x,y,s,{bg=C.red,fg='#fff',px=34,rot=-.04}={}){const w=tw(s,px,F.kd)+36;ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.fillStyle=bg;ctx.fillRect(-w/2,-px*.95,w,px*1.5);
   ctx.fillStyle='rgba(0,0,0,.12)';for(let i=0;i<w;i+=7)ctx.fillRect(-w/2+i,-px*.95,1,px*1.5);tx(s,0,px*.28,px,F.kd,fg,{al:'center'});ctx.restore()}
 function header(t,t0,title,sub){const k=slamIn(t,t0);if(!k)return;ctx.save();ctx.translate(90,250);ctx.scale(k,k);tx(title,0,0,72,F.kd,C.white);ctx.restore();
-  tx(sub,92,306,26,F.kr,C.dim,{w:'700',a:t>t0+BPER?1:0});snareDrum(940,232,58,t)}
+  tx(sub,92,306,26,F.kr,C.dim,{w:'700',a:t>t0+BPER?1:0});drummer(t,930,105,.36)}
 
 // ---------- drum lane at the bottom: the song's real kick (white, up) and snare (red, down) scrolling past a playhead
 function drumLane(t,a=1){if(a<=0)return;const y=1760,pxPerS=260;ctx.save();ctx.globalAlpha*=a;
@@ -127,12 +142,12 @@ function sceneOpen(t){const d1=DB[0];const b=beatsFrom(d1,4);
     ctx.strokeStyle=C.red;ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(0,1090);ctx.lineTo(W,830);ctx.stroke()}
   // pickup: the drum and the words on the two pickup beats
   const big=t<d1;const dr=big?300:150;const dcy=big?900:330;
-  if(big)snareDrum(540,dcy,dr,t);else snareDrum(940,232,58,t);
-  if(big){slamTx(t,BT[0],'오늘의',540,420,120,F.kd,C.white,{al:'center'});slamTx(t,BT[1]||.5,'러닝',540,1420,150,F.kd,C.red,{al:'center'})}
+  let hp=null;if(big)hp=drummer(t,540,330,1.75);else hp=drummer(t,930,105,.36);
+  if(big){slamTx(t,BT[0],'오늘의',540,360,120,F.kd,C.white,{al:'center'});slamTx(t,BT[1]||.5,'러닝',540,1610,150,F.kd,C.red,{al:'center'});shock(t,hp[0],hp[1],700)}
   else{// title on the downbeat, memo and date on the last snare
     tx('오늘의 러닝',90,170,40,F.kd,C.red);slamTx(t,d1,RUN.title,90,330,190,F.kd,C.white);
     if(t>=ph3){slamTx(t,ph3,RUN.memo,92,420,46,F.kr,C.white,{w:'900'});tx(S.dateLong,92,480,30,F.kr,C.dim,{w:'700'})}
-    shock(t,940+.42*58,232+.5*58,800)}}
+    shock(t,hp[0],hp[1],800)}}
 
 // ---------- T1 ~ T2: the whole Garmin capture on the stage; labels land on the snares (never zoomed, nothing drawn on it)
 const CAP={w:1080,h:1483};
@@ -207,15 +222,16 @@ function memoLayout(maxW,maxLines){for(let px=50;px>=38;px-=2){if(MEMO.length<=m
 let ML=null;
 function sceneLoop(t){const lb=beatsFrom(T5,12);
   tx('오늘의 러닝',540,150,40,F.kd,C.red,{al:'center',a:t>=T5?1:0});
-  const dk=slamIn(t,T5)||1;ctx.save();ctx.translate(540,470);ctx.scale(dk,dk);snareDrum(0,0,270,t,{title:RUN.title,sub:`완주  ${(TOTD/1000).toFixed(2)}KM`});ctx.restore();shock(t,540+.42*270,470+.5*270,620);
-  {const t0=lb[4];if(t>=t0){const e=t-t0;const wv=(e%4)>2.6&&(e%4)<3.6;drawImg(wv?'wave':'front',190,790,80)}}
+  slamTx(t,T5,RUN.title,540,270,116,F.kd,C.white,{al:'center'});
+  const hp=drummer(t,540,215,1.08,{badge:'완주'});shock(t,hp[0],hp[1],620);
+  
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.orange],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.white]];
-  ctx.fillStyle=C.faint;ctx.fillRect(90,850,900,2);
-  CR.forEach(([l,v,u,c],i)=>{const t0=lb[1]+BPER/2*i;if(t<t0)return;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=905+row*150;
+  ctx.fillStyle=C.faint;ctx.fillRect(90,940,900,2);
+  CR.forEach(([l,v,u,c],i)=>{const t0=lb[1]+BPER/2*i;if(t<t0)return;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=990+row*128;
     tx(l,cx,y,26,F.kr,C.dim,{al:'center',w:'700'});const vw=tw(v,68,F.num),uw=u?tw(u,24,F.kr,'700')+6:0;slamTx(t,t0,v,cx-uw/2,y+78,68,F.num,c,{al:'center'});if(u)tx(u,cx-uw/2+vw/2+6,y+76,24,F.kr,C.dim,{w:'700'})});
   // setlist paper
-  const pt=lb[5];if(t>=pt){const k=slamIn(t,pt);const px0=90,py0=1230,pw=900,ph=420;ctx.save();ctx.translate(540,py0+ph/2);ctx.scale(k,k);ctx.rotate(-.012);ctx.translate(-540,-(py0+ph/2));
+  const pt=lb[5];if(t>=pt){const k=slamIn(t,pt);const px0=90,py0=1235,pw=900,ph=420;ctx.save();ctx.translate(540,py0+ph/2);ctx.scale(k,k);ctx.rotate(-.012);ctx.translate(-540,-(py0+ph/2));
     ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=24;ctx.fillStyle='#F2F1EC';ctx.fillRect(px0,py0,pw,ph);ctx.shadowColor='transparent';
     [[px0+70,py0],[px0+pw-70,py0]].forEach(([x,y],i)=>{ctx.save();ctx.translate(x,y);ctx.rotate(i?.3:-.3);ctx.fillStyle='rgba(30,30,30,.85)';ctx.fillRect(-60,-18,120,36);ctx.restore()});   // gaffer tape
     tx('SETLIST',px0+40,py0+66,26,F.mono,C.red,{w:'700',ls:6});tx('러닝 메모',px0+pw-40,py0+66,30,F.kd,'#111',{al:'right'});ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(px0+40,py0+86,pw-80,2);

@@ -1,0 +1,46 @@
+<!doctype html><html><body style="margin:0;background:transparent"><canvas id="c"></canvas>
+<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script>
+<script>
+// Star Runner behind a marching snare drum, sticks in both hands. pose(hR,hL): 0 = stick tip on the head, 1 = raised
+const D=Math.PI/180;let sr,scene,stickR,stickL,CFG={};
+function ramp(){const t=new THREE.DataTexture(new Uint8Array([150,210,255]),3,1,THREE.RedFormat);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t}
+const G=ramp();const INK=0x1F2A44;
+function outl(th){return new THREE.ShaderMaterial({uniforms:{thick:{value:th},col:{value:new THREE.Color(INK)}},vertexShader:'uniform float thick;void main(){vec3 p=position+normal*thick;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}',fragmentShader:'uniform vec3 col;void main(){gl_FragColor=vec4(col,1.0);}',side:THREE.BackSide})}
+function toon(c,o={}){return new THREE.MeshToonMaterial(Object.assign({color:new THREE.Color(c),gradientMap:G},o))}
+function mesh(geo,col,th=.012,par){const m=new THREE.Mesh(geo,toon(col));if(th){const h=new THREE.Mesh(geo,outl(th));h.renderOrder=-1;m.add(h)}(par||scene).add(m);return m}
+function cylBetween(a,b,r,col,par){const d=new THREE.Vector3().subVectors(b,a);const m=mesh(new THREE.CylinderGeometry(r,r,d.length(),8),col,.006,par);m.position.copy(a).addScaledVector(d,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());return m}
+function buildDrum(){const g=new THREE.Group();scene.add(g);const R=.42,Hs=.17;
+  const shell=mesh(new THREE.CylinderGeometry(R,R,Hs,48,1,true),0x8E0B1F,.012,g);shell.material.side=THREE.DoubleSide;           // red shell
+  const head=mesh(new THREE.CylinderGeometry(R*.985,R*.985,.004,48),0xF3F1EA,0,g);head.position.y=Hs/2+.004;                      // coated head
+  const bot=mesh(new THREE.CylinderGeometry(R*.985,R*.985,.004,48),0xDDD8CC,0,g);bot.position.y=-Hs/2-.004;
+  [Hs/2+.012,-Hs/2-.012].forEach(y=>{const hoop=mesh(new THREE.TorusGeometry(R+.006,.016,10,64),0xD9DCE2,.008,g);hoop.rotation.x=Math.PI/2;hoop.position.y=y});   // chrome hoops
+  for(let i=0;i<10;i++){const a=i/10*Math.PI*2+.31;const lug=mesh(new THREE.BoxGeometry(.03,.07,.035),0xD9DCE2,.006,g);lug.position.set(Math.cos(a)*(R+.018),0,Math.sin(a)*(R+.018));lug.rotation.y=-a;
+    const rod=mesh(new THREE.CylinderGeometry(.006,.006,Hs+.03,6),0xBFC3CA,0,g);rod.position.set(Math.cos(a)*(R+.012),0,Math.sin(a)*(R+.012))}
+  const badge=mesh(new THREE.BoxGeometry(.06,.035,.01),0xE6C068,.004,g);badge.position.set(0,0,R+.004);
+  // stand: stem to the floor + three splayed legs + basket arms (drum group origin = drum centre; floor is at -DY)
+  g.userData.stand=()=>{const DY=g.position.y;const st=new THREE.Group();g.add(st);cylBetween(new THREE.Vector3(0,-Hs/2,0),new THREE.Vector3(0,-DY+.28,0),.016,0x3A3D44,st);
+    for(let i=0;i<3;i++){const a=i/3*Math.PI*2+Math.PI/2;cylBetween(new THREE.Vector3(0,-DY+.3,0),new THREE.Vector3(Math.cos(a)*.34,-DY,Math.sin(a)*.34),.011,0x3A3D44,st)}
+    for(let i=0;i<3;i++){const a=i/3*Math.PI*2+Math.PI/6;cylBetween(new THREE.Vector3(0,-Hs/2-.04,0),new THREE.Vector3(Math.cos(a)*R*.85,-Hs/2-.02,Math.sin(a)*R*.85),.009,0x3A3D44,st)}};
+  return g}
+function buildStick(par){const s=new THREE.Group();par.add(s);const L=.62;
+  const body=mesh(new THREE.CylinderGeometry(.015,.02,L,10),0xD9B27A,.007,s);body.position.y=-L/2;
+  const tip=mesh(new THREE.SphereGeometry(.024,10,8),0xF1E3C4,.006,s);tip.position.y=-L-.005;tip.scale.set(1,1.4,1);return s}
+window.ready=(async()=>{sr=await StarRunner.create(document.getElementById('c'),{style:'toon',outline:0.016,antialias:true,pixelRatio:1,frameW:2.5,frameH:2.75,feet:.93});
+  let o=sr.nodes.Runner;while(o.parent)o=o.parent;scene=o;
+  window.drum=buildDrum();stickR=buildStick(scene);stickL=buildStick(scene);
+  const bb=new THREE.Box3().setFromObject(sr.nodes.Runner);window.bbox=[bb.min.toArray(),bb.max.toArray()]})();
+// shoulder X- = arm forward, elbow X- = bend forward; wrist turns the stick
+window.P={dz:.58,dy:.56,sh0:-40,sh1:-62,el0:-25,el1:-60,spread:12,spread1:30,lift:.62};
+let standBuilt=false;
+window.frame=async(hR,hL,opts={})=>{await window.ready;const p=Object.assign({},window.P,opts.P||{});drum.position.set(0,p.dy,p.dz);if(!standBuilt){drum.userData.stand();standBuilt=true}
+  const arm=h=>({sh:p.sh0+(p.sh1-p.sh0)*h,el:p.el0+(p.el1-p.el0)*h,sp:p.spread+(p.spread1-p.spread)*h});const a=arm(hR),b=arm(hL);
+  const ST={joints:{'Shoulder.R':[a.sh,0,-a.sp],'Elbow.R':[a.el,0,0],'Shoulder.L':[b.sh,0,b.sp],'Elbow.L':[b.el,0,0],'Head':[10,0,0]},bob:opts.bob||0,squash:opts.squash||1},OP={px:opts.px||300,azim:opts.azim??0.32,elev:opts.elev??0.42};
+  sr.applyPose(ST);
+  // aim sticks: tip on the head near the centre when h=0, swung up over the drum when h=1
+  const headY=p.dy+.17/2+.01;
+  [[stickR,'WristR',hR,-.09],[stickL,'WristL',hL,.09]].forEach(([st,w,h,x])=>{const wp=new THREE.Vector3();sr.nodes[w].getWorldPosition(wp);
+    const hit=new THREE.Vector3(x,headY,p.dz+.04);const up=new THREE.Vector3(x*5.5,headY+p.lift,p.dz+.12);const tgt=hit.clone().lerp(up,h);
+    st.position.copy(wp);const dir=tgt.sub(wp).normalize();st.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),dir)});
+  sr.draw(ST,OP);
+  return document.getElementById('c').toDataURL('image/png')};
+</script></body></html>
