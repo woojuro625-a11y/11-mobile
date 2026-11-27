@@ -51,7 +51,7 @@ const T1=nearDB(3.2),T2=nearDB(7.4),T3=nearDB(11.65),TJ=nearDB(13.8),T4=nearDB(1
 const SNin=(a,b)=>SN.filter(h=>h[0]>=a-.01&&h[0]<b-.01).map(h=>h[0]);   // snare hits inside a span
 
 // ---------- images
-const IMG={};['garmin','front','wave','drummer'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
+const IMG={};['garmin','front','wave'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
 const PHOTOS=RUN.photos.map(src=>{const im=new Image();im.src=src;return im});
 function drawImg(n,cx,by,h,{rot=0,sx=1,alpha=1}={}){const im=IMG[n];const w=im.width*h/im.height;
   ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,by);ctx.rotate(rot);ctx.scale(sx,1);ctx.drawImage(im,-w/2,-h,w,h);ctx.restore()}
