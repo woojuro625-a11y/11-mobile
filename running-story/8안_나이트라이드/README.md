@@ -10,17 +10,14 @@
 내용 규칙은 1안과 같다 (가민 캡처 원본, 실제 페이스, 한글 라벨, 쉼표·마침표 없음, 메모 줄바꿈 유지, 심박수 존 색, 1080×1920 60fps 30초).
 
 ## 음악
-- `python3 -I scripts/music_edit.py 노래.wav music30.wav 임시.js 0 3.819 24.787 49.457 58.03 first`
-  - 3.819~24.787초(인트로 3마디째부터 첫 드롭이 끝날 때까지 정확히 11마디) + 49.457초(마지막 드롭의 마지막 2마디)부터 곡의 끝까지 → 30초
-  - 이음새가 마디 길이에 정확히 맞아 박자가 밀리지 않는다. 박자 격자 `beat.js`는 126.22BPM 고정 격자(0초가 첫 마디)로 직접 쓴다 (아래 코드)
-- `python3 -I scripts/drums.py music30.wav beat.js drums.js` (킥 → 가로등), `python3 -I scripts/bassenv.py music30.wav bass.js` (매 프레임 베이스·음량 → 도시 불빛과 가로등 세기)
-- 효과음 `python3 scripts/sfx_b8m.py beat.js sfx.wav`: 장면 전환마다 작은 바람 소리, 엔딩 히트에 윌리 엔진 소리와 표지판이 켜지는 전기 소리 / 피크 -18 dBFS
+- `python3 -I scripts/music_full.py 노래.wav music30.wav beat.js first 126.22 0.056` — 곡의 처음부터 편집 없이 30초, 마지막 1초 페이드아웃 (126.22BPM 고정 격자)
+  - 첫 30초 구조: 0~5.8초 인트로 → 5.8초 베이스 → 9.6~15.3초 빌드업 → 15.3초 드롭 → 21.0초 브레이크 → 22.9초 다시 드롭(엔딩 장면의 히트) → 29~30초 페이드아웃
+- `python3 -I scripts/drums.py music30.wav beat.js drums.js`, `python3 -I scripts/bassenv.py music30.wav bass.js`
+- 효과음 `python3 scripts/sfx_b8m.py beat.js sfx.wav`: 장면 전환 바람 소리, 다시 들어오는 드롭에 윌리 엔진 소리와 '완주' 표지판 전기 소리 / 피크 -18 dBFS
 
-```python
-b=60/126.22;import json
-B=[[round(k*b,4),1 if k%4==0 else 0] for k in range(int(30/b)+1)]
-open('beat.js','w').write('const BEATS='+json.dumps(B)+';\n')
-```
+## 화면
+- 오토바이 핸들·계기판을 오려 붙인 운전자 시점은 쓰지 않는다(배경과 경계가 생겨 어색함). **도로 사진이 화면 전체(아래까지)를 채우고** 소실점을 향해 끝없이 확대되며 달린다
+- 스타 러너 이스터에그: 데이터 장면마다 한 번씩 오토바이를 탄 스타 러너가 카메라를 추월해 지평선 쪽으로 멀어짐(뒷모습, 빨간 미등). 화면 아래에서 작게 나타나 서서히 사라짐
 
 ## 구성 (편집본 마디 기준, 1마디 1.90초)
 | 시간 | 곡 | 장면 | 내용 |

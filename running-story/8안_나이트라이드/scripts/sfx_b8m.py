@@ -23,7 +23,7 @@ def rev(v=.5, d=1.4):
     return bp(x, 60, 2500) * np.minimum(1, t / .05) * np.minimum(1, (d - t) / .4) * v
 bar = lambda k: DB[k]
 for k in (2, 4, 6, 9, 11): ev(whoosh(.35), bar(k) - .05, 1, 0)
-ev(rev(.55), bar(13) - .05, 1, -.1)
-ev(buzz(.3), bar(13) + .05, 1, .4)
+ev(rev(.55), bar(12) - .05, 1, -.1)
+ev(buzz(.3), bar(12) + .05, 1, .4)
 pk = np.abs(out).max(); out *= 10 ** (-18 / 20) / pk
 wavfile.write(sys.argv[2], SR, (out * 32767).astype(np.int16)); print('sfx peak -18 dBFS')

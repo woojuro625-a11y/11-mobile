@@ -5,7 +5,7 @@ ko=''.join(sorted(set(c for c in html if ord(c)>0x3000)))
 asc=''.join(chr(i) for i in range(32,127))+'·'
 txt=asc+ko
 UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
-fams=['Shrikhand','Jua','Noto+Sans+KR:wght@700;900','Gaegu:wght@700','Oswald:wght@500;700']
+fams=['Fraunces:wght@900','Bagel+Fat+One','Hahmlet:wght@500;600;700;900','Gowun+Dodum']
 url='https://fonts.googleapis.com/css2?'+'&'.join('family='+f for f in fams)+'&text='+urllib.parse.quote(txt)
 css=urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':UA})).read().decode()
 def dl(m):
