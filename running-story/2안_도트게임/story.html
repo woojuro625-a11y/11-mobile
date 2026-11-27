@@ -103,7 +103,7 @@ function burst(x,y,t,t0,{n=14,col=C.yel,r=140,seed=1}={}){const p=P(t,t0,t0+.6);
   lx.fillStyle=i%3?col:C.white;const bx=Math.round((x+Math.cos(a)*d)/PXS),by=Math.round((y+Math.sin(a)*d)/PXS);const s=p<.6?2:1;lx.fillRect(bx,by,s,s)}lflush(1-p*.3)}
 
 // =============== SCENE 1 : opening, photos (mosaic) + Garmin capture window (0 - 4.8)
-const CAP={w:1080,h:1873,s:.6};
+const CAP={w:1080,h:1483,s:.6};   // capture with the memo text cut out (the memo is shown at the end)
 const CAMK=[[2.2,{z:1,fy:936,ay:1080}],[2.7,{z:1.32,fy:300,ay:860}],[2.95,{z:1.32,fy:300,ay:860}],[3.3,{z:1.28,fy:960,ay:1020}],[3.75,{z:1.28,fy:1560,ay:1180}],[4.2,{z:1,fy:936,ay:1080}]];
 function key(t,K){if(t<=K[0][0])return K[0][1];for(let i=0;i<K.length-1;i++){const [a,va]=K[i],[b,vb]=K[i+1];if(t<=b){const e=eio3((t-a)/(b-a));const o={};for(const k in va)o[k]=lerp(va[k],vb[k],e);return o}}return K[K.length-1][1]}
 function sceneOpen(t){
@@ -123,10 +123,10 @@ function sceneOpen(t){
   if(hp>=1){const mx=70+tw(INFO.title,84,F.kr,'900')+26;kr(INFO.memo,mx,346,32,C.yel,{w:'700'});text(INFO.dateLong,mx,388,22,F.kr,C.white,{w:'700'})}
   if(t<1.2){pxt('PRESS START',540,1700,22,C.yel,{align:'center',alpha:Math.floor(t*4)%2?1:.25})}
   // capture in a game window: the WHOLE capture always fits; the focused part is outlined and lifted slightly (never cropped)
-  const op=P(t,1.55,1.85);if(op>0){const ex=P(t,4.25,4.55);const ih=1100,cs=ih/CAP.h,iw=CAP.w*cs;const wx=snap(540-iw/2-PXS*3),wy=480,ww=snap(iw+PXS*6),wh=snap(ih+PXS*6);
+  const op=P(t,1.55,1.85);if(op>0){const ex=P(t,4.25,4.55);const ih=1060,cs=ih/CAP.h,iw=CAP.w*cs;const wx=snap(540-iw/2-PXS*3),wy=480,ww=snap(iw+PXS*6),wh=snap(ih+PXS*6);
     win(wx,wy,ww,wh,op*(1-ex),{title:'RECORD'});
     if(op>=1&&ex<1){const ix=540-iw/2,iy=wy+PXS*3;ctx.drawImage(IMG.garmin,ix,iy,iw,ih);
-      const REG=[[2.25,3.0,0,0,CAP.h*.32,'MAP'],[3.0,3.6,0,CAP.h*.39,CAP.h*.60,'MEMO'],[3.6,4.2,0,CAP.h*.66,CAP.h,'STATS']];
+      const REG=[[2.25,3.0,0,0,CAP.h*.405,'MAP'],[3.0,3.6,0,CAP.h*.41,CAP.h*.565,'TITLE'],[3.6,4.2,0,CAP.h*.575,CAP.h,'STATS']];
       REG.forEach(([a,b,x0,y0,y1,lab])=>{const f=P(t,a,a+.15)*(1-P(t,b-.12,b));if(f<=0)return;const ry=iy+y0*cs,rh=(y1-y0)*cs;const z=1+.1*step(f,3);
         ctx.fillStyle=`rgba(5,7,26,${.55*f})`;ctx.fillRect(ix,iy,iw,ry-iy);ctx.fillRect(ix,ry+rh,iw,iy+ih-ry-rh);           // dim the rest
         const cx=540,cy=ry+rh/2;const dw=iw*z,dh=rh*z;const dx=Math.max(PXS,Math.min(W-PXS-dw,cx-dw/2)),dy=cy-dh/2;
@@ -170,7 +170,7 @@ function sceneMap(t){
     pxt(lapLabel(i),xe,MAP.y0+40,16,C.white,{align:'center',sh:false});ctx.fillStyle=C.white;ctx.fillRect(snap(xe)-3,MAP.y0,6,12);
     const xm=xOfD(LAPSTART[i]+LAPD[i]/2);pxt(pace(s),xm,MAP.y0+80,fast||slow?16:14,col,{align:'center',alpha:pp,sh:false})});
   // runner on the terrain
-  if(rp>0&&rp<1.02){const ci=Math.min(COLS.length-1,Math.floor((xNow-MAP.x0)/MAP.col));const top=snap(yOfP(COLS[ci].p));lclear();dotRun(Math.min(xNow,MAP.x1-10),top,96,t);lflush()}
+  if(rp>0&&rp<1.02){const ci=Math.min(COLS.length-1,Math.floor((xNow-MAP.x0)/MAP.col));const top=snap(yOfP(COLS[ci].p));lclear();dotRun(Math.min(xNow,MAP.x1-10),top,96,t,true);lflush()}
   if(rp>=1){lclear();dot('cheer',MAP.x1-30,snap(yOfP(COLS[COLS.length-1].p)),108);lflush()}
   // instantaneous max pace star
   {const mx=xOfD(DATA.maxPace?DATA.maxPace.dist:TOTAL),my=snap(yOfP(MAXP));const tm=MR0+(MR1-MR0)*(mx-MAP.x0)/(MAP.x1-MAP.x0);
@@ -200,12 +200,14 @@ function sceneStatus(t){
     if(i===cur&&t<12.6){ctx.fillStyle='rgba(255,212,82,.16)';ctx.fillRect(450,y-34,540,46);cursorTri(450,y-12,C.yel)}
     text(r[0],486,y,28,F.kr,C.dim,{w:'700',sh:false});pxt(r[1],880,y,26,r[3],{align:'right'});if(r[2])text(r[2],890,y,20,F.kr,r[3],{w:'700',sh:false})});
   // splits window
-  const o3=P(t,10.5,10.75);win(60,940,960,600,o3,{title:'SPLITS'});
-  if(o3>=1){const rowsN=Math.ceil(NL/2);const rh=Math.min(110,480/rowsN);LAPS.forEach((s,i)=>{const c=i%2,r=Math.floor(i/2);const x=110+c*470,y=1030+r*rh;const p=step(P(t,10.8+i*.08,10.9+i*.08),2);if(p<=0)return;
+  const o3=P(t,10.5,10.75);win(60,940,960,640,o3,{title:'SPLITS'});
+  // one column top to bottom: 1km, 2km ... in order
+  if(o3>=1){const rh=Math.min(68,560/NL);LAPS.forEach((s,i)=>{const y=1016+i*rh;const p=step(P(t,10.8+i*.08,10.9+i*.08),2);if(p<=0)return;
     const fast=s===FAST,slow=s===SLOW;const col=fast?C.yel:slow?C.blu:C.white;
-    pxt(lapLabel(i),x,y,18,C.dim,{sh:false});pxt(pace(s),x+380,y+4,30,col,{align:'right'});
-    if(fast||slow){kr(fast?'가장 빠름':'가장 느림',x+120,y,22,col,{w:'900',sh:false});if(fast){ctx.fillStyle=C.yel;[[0,-1],[-1,0],[0,0],[1,0],[0,1]].forEach(([a,b])=>ctx.fillRect(x+96+a*PXS,y-10+b*PXS,PXS,PXS))}}
-    ctx.fillStyle='rgba(244,244,240,.12)';ctx.fillRect(x,y+22,380,PXS/2)})}
+    pxt(lapLabel(i),110,y,20,C.dim,{sh:false});
+    if(fast||slow){kr(fast?'가장 빠름':'가장 느림',330,y+2,24,col,{w:'900',sh:false});if(fast){ctx.fillStyle=C.yel;[[0,-1],[-1,0],[0,0],[1,0],[0,1]].forEach(([a,b])=>ctx.fillRect(300+a*PXS,y-10+b*PXS,PXS,PXS))}}
+    pxt(pace(s),970,y+4,30,col,{align:'right'});
+    ctx.fillStyle='rgba(244,244,240,.12)';ctx.fillRect(110,y+22,860,PXS/2)})}
   dissolve(P(t,14.1,14.4));
 }
 
@@ -255,7 +257,7 @@ function sceneResult(t){
   bgGame(t,{scroll:(t-LT0)/LP*360/4,dim:0});        // skyline scrolls one tile per 4 loops (seamless at 30 s)
   // ground strip + runner (loop)
   ctx.fillStyle='#1B2A1E';ctx.fillRect(0,660,W,60);ctx.fillStyle=C.grn;ctx.fillRect(0,660,W,12);for(let x=-((t-LT0)*240%48);x<W;x+=48){ctx.fillStyle='#2E5A36';ctx.fillRect(x,684,24,12)}
-  lclear();dotRun(320,660,150,t);lflush();
+  lclear();dotRun(320,660,150,t,true);lflush();
   pxt('RESULT',60,330,28,C.yel);hud(t,'결과');
   const tp=P(t,20.1,20.4);kr(INFO.title,60,470,96,C.white,{alpha:step(tp,3)});
   const mx=60+tw(INFO.title,96,F.kr,'900')+24;const mpx=Math.max(22,Math.min(34,Math.floor(34*(1010-mx)/tw(INFO.memo,34,F.kr,'700'))));
