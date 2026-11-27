@@ -34,12 +34,15 @@ async function init(canvas,{px=300}={}){G=ramp();
   let o=sr.nodes.Runner;while(o.parent)o=o.parent;scene=o;drum=buildDrum();stickR=buildStick();stickL=buildStick();
   const OP={px,azim:.32,elev:.42};const headY=P.dy+.17/2+.01;
   function draw(o){const a=arm(o.hR),b=arm(o.hL);
-    const ST={joints:{'Shoulder.R':[a.sh,0,-a.sp],'Elbow.R':[a.el,0,0],'Shoulder.L':[b.sh,0,b.sp],'Elbow.L':[b.el,0,0],'Head':[o.head||0,(o.headTurn||0),0]},
-      bob:o.bob||0,squash:o.squash||1,lean:o.lean||0,yaw:o.yaw||0};
+    const J={'Shoulder.R':[a.sh,0,-a.sp],'Elbow.R':[a.el,0,0],'Shoulder.L':[b.sh,0,b.sp],'Elbow.L':[b.el,0,0],'Head':[o.head||0,(o.headTurn||0),o.headTilt||0]};
+    if(o.hipR)J['Hip.R']=[o.hipR,0,0];if(o.kneeR)J['Knee.R']=[o.kneeR,0,0];if(o.hipL)J['Hip.L']=[o.hipL,0,0];if(o.kneeL)J['Knee.L']=[o.kneeL,0,0];
+    const ST={joints:J,bob:o.bob||0,squash:o.squash||1,lean:o.lean||0,yaw:o.yaw||0,roll:o.roll||0};
     sr.applyPose(ST);
-    [[stickR,'WristR',o.hR,-.09],[stickL,'WristL',o.hL,.09]].forEach(([st,w,h,x])=>{const wp=new THREE.Vector3();sr.nodes[w].getWorldPosition(wp);
-      const hit=new THREE.Vector3(x,headY,P.dz+.04);const up=new THREE.Vector3(x*5.5,headY+.62,P.dz+.12);const over=new THREE.Vector3(x*4,headY+2.2,P.dz-.35);
-      const tgt=h<=1?hit.clone().lerp(up,h):up.clone().lerp(over,Math.min(1,(h-1)/.6));st.position.copy(wp);st.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),tgt.sub(wp).normalize())});
+    // stick aim: on the head (h=0) -> raised (1) -> overhead (1.6); cross 0..1 brings the overhead tips together (stick click); tw = windmill twirl angle
+    [[stickR,'WristR',o.hR,-.09,o.twR],[stickL,'WristL',o.hL,.09,o.twL]].forEach(([st,w,h,x,tw])=>{const wp=new THREE.Vector3();sr.nodes[w].getWorldPosition(wp);st.position.copy(wp);
+      if(tw!=null){st.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),new THREE.Vector3(Math.sin(tw)*Math.sign(x),Math.cos(tw),.3).normalize());return}
+      const cr=o.cross||0;const hit=new THREE.Vector3(x,headY,P.dz+.04);const up=new THREE.Vector3(x*5.5,headY+.62,P.dz+.12);const over=new THREE.Vector3(x*4*(1-2.2*cr),headY+2.6,P.dz-.05);
+      const tgt=h<=1?hit.clone().lerp(up,h):up.clone().lerp(over,Math.min(1,(h-1)/.6));st.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),tgt.sub(wp).normalize())});
     const r=sr.draw(ST,OP);return r}
   // where the sticks land, in canvas pixels (camera is fixed)
   const r0=draw({hR:.6,hL:.6});const v=new THREE.Vector3(0,headY,P.dz+.04).project(sr.cam);

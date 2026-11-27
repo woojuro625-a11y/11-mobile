@@ -5,6 +5,7 @@
 <script src="data.js"></script>
 <script src="beat.js"></script>
 <script src="drums.js"></script>
+<script src="memo_emphasis.js"></script>
 </head><body>
 <canvas id="c" width="1080" height="1920"></canvas>
 <script>
@@ -12,6 +13,8 @@ const W=1080,H=1920,DUR=30;
 // ---------- per-run text (title / memo are not in the FIT file)
 const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
   review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',   // keep the memo's own line breaks (\n)
+  // the same memo with the parts to emphasise marked (optional; without it the parts are found automatically)
+  reviewMarks:'[[10km]] 뛰려다가 [[8km]]까지만\n아직도 [[근육통|body]]이 심하다\n따뜻하게 입어서 그런지 [[다리가 힘들어서|body]] 그런지\n[[심박수가 급상승|body]] 해버렸다\n내일은 [[하루 더 쉬고|plan]] [[토요일 오전|plan]]에 뛰어야지',
   photos:['img/photo1.jpg','img/photo2.jpg'],photoCaps:['11월 26일 밤','오후 7시 24분']};
 // ---------- look: aurora pulse (night sky, aurora that breathes with the song's sidechain pump, frosted glass cards)
 const C={white:'#F5F7FF',dim:'rgba(245,247,255,.62)',faint:'rgba(245,247,255,.16)',teal:'#3FF2C8',violet:'#8A5CFF',pink:'#FF5FA2',gold:'#FFC46B',blue:'#6FA8FF',green:'#5BE38F',orange:'#FFA55B'};
@@ -186,6 +189,16 @@ function memoLayout(maxW,maxLines){for(let px=50;px>=38;px-=2){if(MEMO.length<=m
   for(let px=50;px>28;px-=2){const lines=[];for(const ln of MEMO){if(tw(ln,px,F.pen)<=maxW){lines.push(ln);continue}let cur='';for(const w of ln.split(' ')){const tt=cur?cur+' '+w:w;if(tw(tt,px,F.pen)>maxW&&cur){lines.push(cur);cur=w}else cur=tt}if(cur)lines.push(cur)}
     if(lines.length<=maxLines)return{px,lines}}return{px:28,lines:MEMO.slice(0,maxLines)}}
 let ML=null;
+function memoStyle(){const COL={num:C.gold,body:C.pink,plan:C.teal,feel:C.violet,key:C.white};
+  const mix=(c,k)=>{const h=c.replace('#','');const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return`rgb(${Math.round(245+(r-245)*k)},${Math.round(247+(g-247)*k)},${Math.round(255+(b-255)*k)})`};
+  return{px:44,headScale:1.18,glow:18,k:0,
+    font:(px,kind)=>kind==='num'?`700 ${Math.round(px*.84)}px "${F.num}"`:`${px}px "${F.pen}"`,
+    color:(kind,k)=>kind?mix(COL[kind]||C.white,k):C.white,
+    decorate:(c,kind,x,y,w,px,k)=>{if(k<=0)return;const col=COL[kind]||C.white;
+      if(kind==='plan'){c.save();c.globalAlpha*=.22*k;c.fillStyle=col;c.beginPath();c.roundRect(x-3,y-px*.78,(w+6)*k,px*1.02,px*.3);c.fill();c.restore()}
+      else if(kind==='body'){c.save();c.strokeStyle=col;c.globalAlpha*=.9;c.lineWidth=2.5;c.shadowColor=col;c.shadowBlur=8;c.beginPath();for(let i=0;i<=w*k;i+=3){const yy=y+10+Math.sin(i*.25)*3;i?c.lineTo(x+i,yy):c.moveTo(x+i,yy)}c.stroke();c.restore()}
+      else if(kind==='feel'){c.save();c.fillStyle=col;c.globalAlpha*=k;for(let i=0;i<w*k;i+=10)c.fillRect(x+i,y+9,5,3);c.restore()}
+      else if(kind==='key'){c.save();const g=c.createLinearGradient(x,0,x+w,0);g.addColorStop(0,C.teal);g.addColorStop(1,C.violet);c.fillStyle=g;c.fillRect(x,y+9,w*k,3);c.restore()}}}}
 function sceneLoop(t){sky(t);const e=t-T6;const lb=beatsFrom(T6,16);
   // Star Runner floating like an astronaut, slow drift (easter egg)
   {const u=(e/10.9);const x=lerp(1000,820,u),y=330+Math.sin(e*.9)*14;const im=IMG[(e%4)>2.4&&(e%4)<3.4?'wave':'front'];const h=90;const w=im.width*h/im.height;
@@ -200,8 +213,12 @@ function sceneLoop(t){sky(t);const e=t-T6;const lb=beatsFrom(T6,16);
     tx(v,x+150-uw/2,y+128,62,F.num,c,{al:'center',w:'700',a:q});if(u)tx(u,x+150-uw/2+vw/2+6,y+126,22,F.kr,C.dim,{w:'500',a:q})});
   const mt=lb[4];const q=soft(t,mt,.5);if(q>0){const x=70,y=860+(1-q)*24,w=940,h=520;glass(x,y,w,h,36,{a:q});
     tx('러닝 메모',x+44,y+70,32,F.kr,C.white,{w:'800',a:q});ctx.fillStyle=`rgba(245,247,255,${.18*q})`;ctx.fillRect(x+44,y+96,w-88,1.5);
-    if(!ML)ML=memoLayout(w-140,6);const lh=ML.px*1.3,top=y+96+(h-96-ML.lines.length*lh)/2+ML.px*.9;
-    ML.lines.forEach((ln,i)=>softTx(t,mt+.3+BPER/2*i,ln,540,top+i*lh,ML.px,F.pen,C.white,{al:'center',d:.5}))}
+    // the memo, line breaks kept; important parts light up in their own style a moment after each line appears
+    const MLN=MemoEmphasis.parse(RUN.review,RUN.reviewMarks);const mo=memoStyle();
+    if(!ML){for(let px=48;px>=34;px-=2){mo.px=px;if(MLN.every(l=>MemoEmphasis.width(ctx,l,mo)<=w-120)){ML={px};break}}if(!ML)ML={px:34}}mo.px=ML.px;
+    const lh=ML.px*1.5,top=y+96+(h-96-MLN.length*lh)/2+ML.px*1.05;
+    MLN.forEach((ln,i)=>{const t1=mt+.3+BPER*.6*i;const p=soft(t,t1,.5);if(p<=0)return;mo.k=eo3(P(t,t1+.45,t1+1.05));
+      ctx.save();ctx.globalAlpha*=p;if(p<1)ctx.filter=`blur(${(1-p)*8}px)`;MemoEmphasis.drawLine(ctx,ln,540,top+i*lh+(1-p)*18+(ln.headline?-4:0),mo);ctx.restore()})}
   softTx(t,T6+1,S.dateLong,540,1470,28,F.kr,C.dim,{al:'center',w:'300'})}
 
 // ---------- timeline (soft cross-dissolves on the downbeats; a bloom on the drop)

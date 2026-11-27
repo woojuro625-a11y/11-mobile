@@ -84,23 +84,39 @@ const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼�
 // excitement builds through the song: head nods get deeper, sticks go higher, and big jump-and-slam hits start and get more frequent
 const DPX=360,REF=240;let DR=null,GLC=null;const lastOf=(arr,t)=>{let r=-1e9;for(const x of arr){if(x<=t)r=x;else break}return r};
 const EXC=t=>t>=T5?.9:clamp(.3+.7*t/15.9);
-const JUMPS=(()=>{const out=[];DB.forEach((d,bi)=>{const e=EXC(d);if(e<.45||d<T1)return;if(e<.75&&bi%2)return;
-  const hs=SN.filter(h=>h[0]>d+BPER*1.5&&h[0]<d+4*BPER-.05&&h[1]>.75);if(hs.length)out.push(hs[hs.length-1][0])});return out})();
-const jumpAt=t=>JUMPS.find(j=>t>=j-.45&&t<j+.35);
+// a different move every bar once the excitement is up (groove -> frenzy / jump / windmill+slam (click) / spin / roll / kick), all on the song's real hits
+const eio3=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const MOVES=['jump','frenzy','click','spin','roll','kick','frenzy','jump','spin','click','roll','kick','jump','frenzy'];
+const BARS=(()=>{let n=0;return DB.map(d=>{const e=EXC(d);let m='groove';if(d>=T1-.05&&e>=.42){m=MOVES[n%MOVES.length];n++}
+  const hs=SN.filter(h=>h[0]>d+BPER*1.5&&h[0]<d+4*BPER-.05&&h[1]>.75);const slam=hs.length?hs[hs.length-1][0]:null;
+  if(['jump','spin','kick','click'].includes(m)&&slam===null)m='frenzy';return{d,m,slam}})})();
+const JUMPS=BARS.filter(b=>b.slam!==null&&['jump','spin','kick','click'].includes(b.m)).map(b=>b.slam);
+const barAt=t=>{let r=BARS[0];for(const b of BARS){if(b.d<=t+.46)r=b;else break}return r};   // a jump may start just before its bar
 const jumpP=t=>{const j=JUMPS.filter(x=>x<=t).pop();return j!==undefined&&t-j<1?Math.exp(-(t-j)/.1):0};
 function drumState(t){const e=EXC(t);const lb=lastOf(BT,t);const ph=clamp((t-lb)/BPER);
   const nod=(10+20*e)*Math.pow(1-ph,2.2)-(6+12*e)*Math.sin(Math.PI*ph);             // big nod down on every beat, lift between
-  const o={head:nod,bob:-.04*e*Math.pow(1-ph,3),squash:1-.035*e*Math.pow(1-ph,3),lean:5*e*Math.pow(1-ph,2),yaw:Math.sin(t*1.4)*7*e,hR:.6,hL:.6};
+  const o={head:nod,bob:-.04*e*Math.pow(1-ph,3),squash:1-.035*e*Math.pow(1-ph,3),lean:5*e*Math.pow(1-ph,2),yaw:Math.sin(t*1.4)*7*e,roll:0,hR:.6,hL:.6};
   // alternating hands on the snare hits: wind up (higher when harder / more excited), strike on the hit, bounce back
   const i=SN.findIndex(h=>h[0]>t);const prev=i<0?SN[SN.length-1]:SN[i-1],next=i<0?null:SN[i];
   const set=(k,h)=>{if(k%2)o.hL=h;else o.hR=h};
   if(prev&&t-prev[0]<.16)set(SN.indexOf(prev),lerp(0,.6,(t-prev[0])/.16));
   else if(next&&next[0]-t<.24){const u=(next[0]-t)/.24,pk=Math.min(1.5,.8+.2*next[1]+.55*e);set(i,u>.45?lerp(pk,.6,(u-.45)/.55):lerp(0,pk,u/.45))}
-  // jump and slam: crouch, leap with both arms overhead, both sticks crash down on the hit, land low
-  const J=jumpAt(t);if(J!==undefined){const u=t-J;const Hh=.35+.3*e;
+  const B=barAt(t);const bt=t-B.d;
+  if(B.m==='frenzy'&&bt>=0){const p8=(bt/(BPER/2))%1;o.head=(24+16*e)*Math.pow(1-p8,2)-12*Math.sin(Math.PI*p8);o.roll=13*Math.sin(Math.PI*bt/BPER);o.bob=-.05*Math.pow(1-p8,3);o.squash=1-.05*Math.pow(1-p8,3);o.headTilt=10*Math.sin(Math.PI*bt/BPER)}
+  if(B.m==='roll'&&bt>=BPER*2){const r=bt-BPER*2;const f=BPER/4;o.hR=.08+.5*Math.abs(Math.sin(Math.PI*r/f));o.hL=.08+.5*Math.abs(Math.cos(Math.PI*r/f));
+    o.headTurn=28*Math.sin(2*Math.PI*r/BPER);o.head=14+6*Math.sin(2*Math.PI*r/f);o.squash=1-.03*Math.abs(Math.sin(Math.PI*r/f));o.lean=10}
+  if(B.m==='roll'&&bt<BPER*2&&bt>=0){const a=2*Math.PI*bt/(BPER*.5);o.twR=a;o.head=nod*.7;o.headTilt=-8}               // twirl the right stick before the roll
+  if(B.m==='click'&&B.slam!==null){const c0=B.d+BPER*.9;if(t>=c0&&t<B.slam-.2){const k=(t-c0)/BPER;o.hR=o.hL=1.15;o.twR=2*Math.PI*k;o.twL=-2*Math.PI*k;o.head=-14+10*Math.abs(Math.sin(2*Math.PI*k));o.lean=-4;o.bob=.03*Math.abs(Math.sin(2*Math.PI*k));o.roll=8*Math.sin(Math.PI*k)}   // both sticks windmill, then slam
+    else if(t>=B.slam-.2&&t<B.slam){const k=(t-(B.slam-.2))/.2;o.hR=o.hL=lerp(1.6,0,k*k);o.head=lerp(-26,22,k);o.squash=1-.06*k}
+    else if(t>=B.slam&&t<B.slam+.35){const u=t-B.slam;o.squash=1-.16*Math.exp(-u/.07);o.bob=-.06*Math.exp(-u/.09);o.hR=o.hL=lerp(0,.6,eo3(u/.35));o.head=22*Math.exp(-u/.16)}}
+  // jump moves: crouch, leap with both arms overhead, both sticks crash down on the hit, land low (spin turns a full circle in the air, kick throws a leg out and points at the sky after)
+  if(['jump','spin','kick'].includes(B.m)&&B.slam!==null&&t>=B.slam-.45&&t<B.slam+.5){const u=t-B.slam;const Hh=.38+.3*e;
     if(u<-.33){const k=(u+.45)/.12;o.squash=1-.1*k;o.bob=-.05*k;o.hR=o.hL=lerp(.6,1.6,k);o.head=lerp(o.head,-12,k)}
-    else if(u<0){const k=(u+.33)/.33;o.bob=Hh*4*k*(1-k);o.squash=1+.06*Math.sin(Math.PI*k);o.hR=o.hL=k<.72?1.6:lerp(1.6,0,(k-.72)/.28);o.head=k<.72?-22:lerp(-22,18,(k-.72)/.28);o.lean=k<.72?-6:8}
-    else{const k=u/.35;o.squash=1-.12*Math.exp(-u/.07);o.bob=-.05*Math.exp(-u/.09);o.hR=o.hL=lerp(0,.6,eo3(k));o.head=20*Math.exp(-u/.16);o.lean=8*(1-k)}}
+    else if(u<0){const k=(u+.33)/.33;o.bob=Hh*4*k*(1-k);o.squash=1+.06*Math.sin(Math.PI*k);o.hR=o.hL=k<.72?1.6:lerp(1.6,0,(k-.72)/.28);o.head=k<.72?-22:lerp(-22,18,(k-.72)/.28);o.lean=k<.72?-6:8;
+      if(B.m==='spin')o.yaw+=360*eio3(Math.min(1,k/.8));
+      if(B.m==='kick'){const q=Math.sin(Math.PI*Math.min(1,k/.8));o.hipR=-75*q;o.kneeR=15*q;o.hipL=12*q;o.roll=-8*q}}
+    else if(u<.35){const k=u/.35;o.squash=1-.12*Math.exp(-u/.07);o.bob=-.05*Math.exp(-u/.09);o.hR=o.hL=lerp(0,.6,eo3(k));o.head=20*Math.exp(-u/.16);o.lean=8*(1-k)}
+    if(B.m==='kick'&&u>=.1&&u<.5){const q=Math.sin(Math.PI*(u-.1)/.4);o.hL=lerp(o.hL,1.6,q);o.head=lerp(o.head,-18,q);o.headTurn=20*q}}
   return o}
 function drummer(t,cx,top,sc,{alpha=1}={}){const k=sc*REF/DPX,[gw,gh]=DR.size;const feetY=top+614*sc;const y0=feetY-gh*.88*k;
   ctx.save();ctx.globalAlpha*=alpha;ctx.drawImage(GLC,cx-gw*k/2,y0,gw*k,gh*k);ctx.restore();
