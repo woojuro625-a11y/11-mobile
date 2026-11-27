@@ -37,11 +37,11 @@ async function init(canvas,{px=300}={}){
   bike.add(M(new THREE.CylinderGeometry(.045,.055,.5,12),CHROME,[.17,.2,-.32],[Math.PI/2-.12,0,0]));          // exhaust
   [-1,1].forEach(s=>bike.add(M(new THREE.BoxGeometry(.1,.025,.05),CHROME,[.16*s,.12,.12])));                   // foot pegs
   const OP={px,azim:.25,elev:.1};
-  function draw(o){const tk=o.tuck||0;const J={'Head':[(o.head||0)+10*tk,o.headTurn||0,o.headTilt||0]};
-    J['Hip.R']=[-88,0,-6];J['Hip.L']=[-88,0,6];J['Knee.R']=[92,0,0];J['Knee.L']=[92,0,0];                       // seated, feet on the pegs
-    J['Shoulder.R']=o.shR||[-78-8*tk,0,-12];J['Shoulder.L']=o.shL||[-78-8*tk,0,12];J['Elbow.R']=[o.elR??-12,0,0];J['Elbow.L']=[o.elL??-12,0,0];
+  function draw(o){const tk=o.tuck||0;const J={'Head':[(o.head||0)+10*tk,o.headTurn||0,o.headTilt||0]};bike.visible=!o.stand;
+    if(!o.stand){J['Hip.R']=[-88,0,-6];J['Hip.L']=[-88,0,6];J['Knee.R']=[92,0,0];J['Knee.L']=[92,0,0]}                       // seated, feet on the pegs (o.stand: standing, no bike)
+    J['Shoulder.R']=o.shR||(o.stand?[0,0,-10]:[-78-8*tk,0,-12]);J['Shoulder.L']=o.shL||(o.stand?[0,0,10]:[-78-8*tk,0,12]);J['Elbow.R']=[o.elR??(o.stand?-20:-12),0,0];J['Elbow.L']=[o.elL??(o.stand?-20:-12),0,0];
     wheels.forEach(w=>w.rotation.x=o.spin||0);
-    return sr.draw({joints:J,bob:(o.bob||0)+.04,squash:1,lean:(o.lean||0)+12*tk,yaw:o.yaw||0,roll:o.roll||0},{px:OP.px,azim:o.azim??OP.azim,elev:o.elev??OP.elev})}
+    return sr.draw({joints:J,bob:(o.bob||0)+(o.stand?0:.04),squash:1,lean:(o.lean||0)+12*tk,yaw:o.yaw||0,roll:o.roll||0},{px:OP.px,azim:o.azim??OP.azim,elev:o.elev??OP.elev})}
   const r0=draw({});return{draw,size:[r0.w,r0.h],feet:.86}}
 root.Rider3D={init};
 })(window);
