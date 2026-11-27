@@ -8,10 +8,16 @@
 내용 규칙은 1안과 같다 (가민 캡처 원본, 실제 페이스, 한글 라벨, 쉼표·마침표 없음, 메모 줄바꿈 유지, 심박수 존 색, 1080×1920 60fps 30초).
 
 ## 음악
-- `python3 -I scripts/music_edit.py 노래.wav music30.wav beat.js 0 0 20.96 49.83 58.2 first`
-  - 곡의 처음부터 20.96초까지 + 49.83초부터 곡의 끝까지 → 30초. 이음새 21.0초가 엔딩 장면 시작
-- `python3 -I scripts/drums.py music30.wav beat.js drums.js` (킥 → 붐박스), `python3 -I scripts/bassenv.py music30.wav bass.js` (매 프레임 음량 → 춤의 크기·레벨 미터)
+- `python3 -I scripts/music_full.py 노래.wav music30.wav beat.js first` — 곡의 처음부터 편집 없이 30초, 마지막 1초 페이드아웃
+  - 박자 격자는 0.255초부터 1박 0.650초 고정 격자로 다시 씀(곡 끝까지 킥과 ±0.05초 안으로 맞음)
+- `python3 -I scripts/drums.py music30.wav beat.js drums.js`, `python3 -I scripts/bassenv.py music30.wav bass.js`
 - 효과음 `python3 scripts/sfx_b7h.py beat.js sfx.wav`: '완주' 도장에 스프레이 소리, 메모 카드에 카세트 버튼 딸깍 / 피크 -17 dBFS
+
+## 그래피티 타이포그래피
+- 제목·장면 제목: Black Han Sans를 그래피티 레터링으로 가공(`graf()`): 분홍 스프레이 번짐 → 검정 3D 블록 그림자 → 흰 외곽선 → 검정 안쪽 선 → 노랑/주황 두 톤 채움 + 흰 하이라이트 + 스프레이 점 → 흘러내리는 자국
+- 손글씨(부제·메모): 동해독도체(East Sea Dokdo), 태그 낙서('today' 'RUN'): Sedgwick Ave Display, 숫자: Permanent Marker(메모 안 숫자는 원문 대소문자를 지키려고 Black Han Sans)
+- 막대(구간 기록·심박존)는 스프레이로 칠한 모양(`sprayBar()`: 번짐, 거친 가장자리, 흘러내림 하나)
+- '완주'는 빨간 스프레이 원 + 흰·분홍 그래피티 글자
 
 ## 구성 (1박 0.65초)
 | 시간 | 장면 | 내용 |
