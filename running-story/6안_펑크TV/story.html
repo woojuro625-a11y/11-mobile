@@ -1,0 +1,253 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script src="data.js"></script>
+<script src="beat.js"></script>
+<script src="drums.js"></script>
+<script src="bass.js"></script>
+<script src="memo_emphasis.js"></script>
+<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script><script src="dancer3d.js"></script>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+const W=1080,H=1920,DUR=30;
+// ---------- per-run text (title / memo are not in the FIT file)
+const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
+  review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',   // keep the memo's own line breaks (\n)
+  reviewMarks:'[[10km]] 뛰려다가 [[8km]]까지만\n아직도 [[근육통|body]]이 심하다\n따뜻하게 입어서 그런지 [[다리가 힘들어서|body]] 그런지\n[[심박수가 급상승|body]] 해버렸다\n내일은 [[하루 더 쉬고|plan]] [[토요일 오전|plan]]에 뛰어야지',
+  photos:['img/photo1.jpg','img/photo2.jpg'],photoCaps:['11월 26일 밤','오후 7시 24분']};
+// ---------- look: 70s funk TV show (cream, sunburst, orange / mustard / brown stripes, rounded retro type)
+const C={cream:'#F6E7C8',cream2:'#FBF2DE',orange:'#E8642B',mustard:'#F2B33D',brown:'#5A3420',brown2:'rgba(90,52,32,.62)',brown3:'rgba(90,52,32,.14)',teal:'#2E8B88',red:'#C8372D',green:'#3D8F4E',blue:'#2F6DB5'};
+const ZT=['#6B7480','#7D8792','#1F86D6','#16A35A','#D9860B','#D93A37'];      // zone colours (존 미만 1 2 3 4 5), readable on cream
+const hrCol=h=>ZT[DATA.zones.filter(b=>h>=b).length];
+const F={retro:'Shrikhand',kd:'Jua',kr:'Noto Sans KR',hand:'Gaegu'};
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+// ---------- utils
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo3=t=>1-Math.pow(1-t,3),eio3=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const eoBack=(t,s=1.7)=>1+(s+1)*Math.pow(t-1,3)+s*Math.pow(t-1,2);
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const mmss=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+const pace=s=>{s=Math.round(s);return `${Math.floor(s/60)}'${String(s%60).padStart(2,'0')}"`};
+const dsec=s=>{s=Math.round(s);return s>=60?`${Math.floor(s/60)}분 ${s%60}초`:`${s}초`};
+function tx(s,x,y,px,fam,col,{w='',al='left',a=1,ls=0,maxW=0}={}){
+  ctx.save();ctx.globalAlpha*=a;ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.textAlign=al;ctx.textBaseline='alphabetic';ctx.letterSpacing=ls+'px';ctx.fillStyle=col;
+  const m=ctx.measureText(s).width;ctx.translate(x,y);if(maxW&&m>maxW)ctx.scale(maxW/m,1);ctx.fillText(s,0,0);ctx.restore()}
+function tw(s,px,fam,w='',ls=0){ctx.save();ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.letterSpacing=ls+'px';const m=ctx.measureText(s).width;ctx.restore();return m}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+// 70s stacked-shadow type
+function retroTx(s,x,y,px,fam,{al='left',cols=[C.mustard,C.orange],face=C.brown,off=5,a=1,w=''}={}){for(let i=cols.length;i>=1;i--)tx(s,x+off*i,y+off*i,px,fam,cols[i-1],{al,a,w});tx(s,x,y,px,fam,face,{al,a,w})}
+// boing: rise with overshoot
+function boing(t,t0,d=.35){return t<t0?-1:eoBack(P(t,t0,t0+d),2.2)}
+
+// ---------- the song: funk ~96 BPM, kick on 1 and 3, snare backbeat on 2 and 4, swung 16ths; played from the start, then its real ending
+const BT=BEATS.map(b=>b[0]),DB=BEATS.filter(b=>b[1]).map(b=>b[0]);
+const BPER=(()=>{const d=BT.slice(1).map((b,i)=>b-BT[i]).sort((a,b)=>a-b);return d[Math.floor(d.length/2)]})();
+const lastOf=(arr,t)=>{let r=-1e9;for(const x of arr){if(x<=t)r=x;else break}return r};
+const SN=DRUMS.beats.filter(b=>b[2]>.6).map(b=>[b[0],Math.min(1,b[2])]);
+const snP=(t,k=.12)=>{let h=null;for(const s of SN){if(s[0]<=t)h=s;else break}return h&&t-h[0]<1?Math.exp(-(t-h[0])/k)*h[1]:0};
+const fr=t=>Math.max(0,Math.min(1799,Math.floor(t*60)));
+const bassAt=t=>BASS[fr(t)],loudAt=t=>LOUD[fr(t)];
+const nearDB=x=>DB.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a,DB[0]);
+const beatsFrom=(t0,n)=>{const i=BT.findIndex(b=>b>=t0-.02);return BT.slice(i,i+n)};
+const T1=nearDB(4.5),T2=T1+BPER*6,T3=T2+BPER*6,T4=T3+BPER*6,T5=nearDB(19.67);   // scenes on bars and half bars (beat 3 is a kick too)
+const FINAL=T5+BPER*8;                                                          // the song's last chord hit (then it rings out)
+
+// ---------- images
+const IMG={};['garmin'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
+const PHOTOS=RUN.photos.map(src=>{const im=new Image();im.src=src;return im});
+
+// ---------- data
+const S=DATA.session,TOTD=S.dist,TT=S.time;
+const LAPS=DATA.laps.map(l=>l[1]/(l[0]/1000)),LAPD=DATA.laps.map(l=>l[0]),NL=LAPS.length;
+const LAPR=LAPS.map(s=>Math.round(s));
+const FAST=LAPR.indexOf(Math.min(...LAPR)),SLOW=LAPR.indexOf(Math.max(...LAPR));
+const lapLabel=i=>LAPD[i]>=990?`${i+1}km`:`${(LAPD.slice(0,i+1).reduce((a,b)=>a+b,0)/1000).toFixed(2)}km`;
+const MAXP=(DATA.maxPace&&DATA.maxPace.sec)||Math.min(...LAPS),MAXD=(DATA.maxPace&&DATA.maxPace.dist)||TOTD;
+const PSER=DATA.paceSeries||[];const PSORT=PSER.map(x=>x[1]).sort((a,b)=>a-b);const P98=PSORT.length?PSORT[Math.floor(PSORT.length*.98)]:Math.max(...LAPS);
+const PLO=Math.floor((Math.min(MAXP,PSORT[0]||MAXP,...LAPS)-8)/10)*10,PHI=Math.ceil((Math.max(P98,...LAPS)+10)/10)*10;
+const AVGP=TT/(TOTD/1000);
+const SPLIT_LINE=(()=>{const sp=Math.max(...LAPR)-Math.min(...LAPR);const last=LAPR[NL-1],first=LAPR[0];
+  if(sp<=20)return'흔들림 없이 같은 리듬으로';if(last===Math.min(...LAPR)&&first>=Math.max(...LAPR)-5)return'갈수록 빨라지고 마지막은 스퍼트';
+  if(last===Math.min(...LAPR))return'마지막 1km는 스퍼트';return'구간마다 리듬을 바꿔 가며'})();
+const ZS=DATA.zoneSec,ZTOT=ZS.reduce((a,b)=>a+b,0),ZMAX=Math.max(...ZS);const ZTOP=ZS.slice(1).indexOf(Math.max(...ZS.slice(1)))+1;
+const ZONE_LINE=`가장 오래 머문 구간은 ${ZTOP}존 ${Math.round(ZS[ZTOP]/ZTOT*100)}%`;
+const zRange=i=>i===0?`${DATA.zones[0]-1} 이하`:i<5?`${DATA.zones[i-1]}~${DATA.zones[i]-1}`:`${DATA.zones[4]} 이상`;
+const BRK=DATA.breaks||[];
+const BREAK_LINE=BRK.length?`중간에 ${BRK.length}번 멈춤 ${dsec(BRK.reduce((a,b)=>a+b.dur,0))}`:'중간 멈춤 없이 연속 달리기';
+const SK=Math.min(NL-1,Math.floor(MAXD/1000));
+const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
+
+// ---------- backdrop: cream paper, slow sunburst, the bass line vibrating with the song's real bass
+const PAPER=document.createElement('canvas');PAPER.width=W;PAPER.height=H;
+function buildPaper(){const g=PAPER.getContext('2d');g.fillStyle=C.cream;g.fillRect(0,0,W,H);
+  for(let i=0;i<24000;i++){g.fillStyle=rnd(i*1.9)>.5?'rgba(120,80,40,.05)':'rgba(255,255,255,.25)';g.fillRect(rnd(i*2.3)*W,rnd(i*3.7+1)*H,1.6,1.6)}
+  const v=g.createRadialGradient(540,900,500,540,960,1300);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(120,70,20,.2)');g.fillStyle=v;g.fillRect(0,0,W,H)}
+function bg(t,{cx=540,cy=700,rays=1}={}){ctx.drawImage(PAPER,0,0);
+  if(rays>0){ctx.save();ctx.globalAlpha=.5*rays;ctx.translate(cx,cy);ctx.rotate(t*.08);for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(242,179,61,.18)':'rgba(232,100,43,.08)';ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,1600,i/24*Math.PI*2,(i+1)/24*Math.PI*2);ctx.closePath();ctx.fill()}ctx.restore()}}
+function bassLine(t){const y0=1760,amp=8+46*bassAt(t)*Math.min(1,loudAt(t)*3);const cols=[C.orange,C.mustard,C.brown];
+  cols.forEach((c,k)=>{ctx.save();ctx.strokeStyle=c;ctx.lineWidth=14;ctx.lineCap='round';ctx.beginPath();
+    for(let x=-20;x<=W+20;x+=10){const y=y0+k*18+Math.sin(x*.012-t*6+k*.6)*amp*Math.sin(Math.PI*clamp(x/W))*(1-.15*k);x===-20?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();ctx.restore()})}
+// 70s three-stripe wipe between scenes
+function stripeWipe(t,t0){const p=P(t,t0-.22,t0+.22);if(p<=0||p>=1)return;const cols=[C.orange,C.mustard,C.brown];
+  cols.forEach((c,k)=>{const q=clamp(p*1.25-k*.12);const x=lerp(-1600,1600,eio3(q));ctx.save();ctx.translate(540+x,960);ctx.rotate(-.35);ctx.fillStyle=c;rr(-500,-1400+k*0,1000-k*120,2800,500);ctx.fill();ctx.restore()})}
+function header(t,t0,title,sub){const k=boing(t,t0);if(k<0)return;ctx.save();ctx.translate(90,250);ctx.scale(k,k);retroTx(title,0,0,74,F.kd,{off:4});ctx.restore();
+  tx(sub,92,306,26,F.kr,C.brown2,{w:'700',a:t>t0+BPER*.5?1:0})}
+
+// ---------- Star Runner, funk dancer (live 3D). A different move every bar; a ta-da on the song's final chord, then he winds down with it
+const DPX=330;let DR=null,GLC=null;
+const MOVES=['groove','point','step','twist','shimmy','point','step','twist','shimmy','groove','point','step'];
+function danceState(t){const lb=lastOf(BT,t);const ph=clamp((t-lb)/BPER);const bi=BT.indexOf(lb);const e=t<.5?.4:clamp(.55+.6*loudAt(t)*2.2,0,1);
+  const db=lastOf(DB,t);const barIdx=Math.max(0,DB.indexOf(db));const beatInBar=Math.round((lb-db)/BPER);const mv=t>=FINAL?'end':MOVES[barIdx%MOVES.length];
+  const back=(bi%2===1);                                                 // beats 2 and 4: the backbeat
+  const bounce=Math.pow(1-ph,2.5);const o={bob:-.06*e*bounce,squash:1-.05*e*bounce,head:back?14*e*bounce:4*bounce,roll:0,yaw:0,lean:3*e*bounce};
+  const sgn=bi%2?1:-1;
+  if(mv==='groove'){o.shR=[-35*sgn,0,-14];o.shL=[35*sgn,0,14];o.elR=-50;o.elL=-50;o.roll=5*sgn;if(beatInBar===3){o.shR=[-20,0,-95];o.shL=[-20,0,95];o.elR=o.elL=-10;o.bob=.06*Math.sin(Math.PI*ph)}}
+  if(mv==='point'){const up=beatInBar%2===0;o.shR=up?[-25,0,-105]:[-70,0,-15];o.elR=up?0:-10;o.shL=[0,0,40];o.elL=-85;o.roll=up?-8:8;o.head=up?-12:16;o.headTurn=up?-18:10}
+  if(mv==='step'){o.yaw=22*sgn;o.hipR=sgn>0?-38*Math.sin(Math.PI*ph):0;o.kneeR=sgn>0?45*Math.sin(Math.PI*ph):0;o.hipL=sgn<0?-38*Math.sin(Math.PI*ph):0;o.kneeL=sgn<0?45*Math.sin(Math.PI*ph):0;
+    o.shR=[-55*(sgn>0?1:.2),0,-12];o.shL=[-55*(sgn<0?1:.2),0,12];o.elR=o.elL=-75;o.bob+=.03*Math.sin(Math.PI*ph)}
+  if(mv==='twist'){const tw=Math.sin(2*Math.PI*(t-db)/(BPER));o.yaw=30*tw;o.shR=[0,0,-70];o.shL=[0,0,70];o.elR=o.elL=-30;o.roll=-6*tw;o.bob=-.05*Math.abs(Math.sin(2*Math.PI*(t-db)/BPER))}
+  if(mv==='shimmy'){const s=Math.sin(2*Math.PI*(t-db)/(BPER/4));o.roll=7*s;o.shR=[-30,0,-60];o.shL=[-30,0,60];o.elR=o.elL=-70;o.headTilt=10*s;o.lean=8;
+    if(beatInBar===3){const k=ph;o.yaw=360*eio3(k)}}                          // spin on the last beat of a shimmy bar
+  if(mv==='end'){const u=t-FINAL;const k=eoBack(P(u,0,.3),2);const fade=clamp(1-(t-(FINAL+1))/3.5);const sw=Math.sin((t-FINAL)*3.2)*fade;
+    o.shR=[-20,0,lerp(-14,-100,k)];o.shL=[-20,0,lerp(14,100,k)];o.elR=o.elL=0;o.bob=.07*k*(u<.4?1:.5+.5*fade)+.02*sw;o.head=-12;o.roll=6*sw;o.yaw=10*sw;o.squash=1}
+  return o}
+function dancer(t,cx,feetY,sc,{alpha=1}={}){if(!DR)return;const [gw,gh]=DR.size;const k=sc*240/DPX;const y0=feetY-gh*DR.feet*k;
+  ctx.save();ctx.globalAlpha*=alpha;ctx.drawImage(GLC,cx-gw*k/2,y0,gw*k,gh*k);ctx.restore()}
+
+// ---------- 0 ~ T1: intro. funk stops pop the words in, photos in retro TV frames bounce on the backbeat
+function sceneIntro(t){bg(t,{cy:560});
+  const hits=BT.filter(b=>b<T1);
+  {const k=boing(t,hits[0]||.1);if(k>=0){ctx.save();ctx.translate(540,180);ctx.scale(k,k);tx('오늘의 러닝',0,0,42,F.kd,C.orange,{al:'center'});ctx.restore()}}
+  {const k=boing(t,hits[2]||1.3,.4);if(k>=0){ctx.save();ctx.translate(540,360);ctx.scale(k,k);retroTx(RUN.title,0,0,150,F.kd,{al:'center',off:7});ctx.restore()}}
+  {const k=boing(t,hits[3]||1.97);if(k>=0){const w=tw(RUN.memo,40,F.kd)+60;ctx.save();ctx.translate(540,450);ctx.scale(k,k);ctx.fillStyle=C.orange;rr(-w/2,-38,w,62,31);ctx.fill();tx(RUN.memo,0,8,40,F.kd,C.cream2,{al:'center'});ctx.restore();
+    tx(S.dateLong,540,530,30,F.kr,C.brown2,{al:'center',w:'700',a:P(t,hits[3]+.2,hits[3]+.5)})}}
+  PHOTOS.forEach((im,i)=>{const t0=(hits[4+i]||2.6+i*.6);const k=boing(t,t0,.4);if(k<0)return;const sn=1+.03*snP(t);const cx=i?775:305,cy=1060+(i?40:0),rot=i?.06:-.06;const w=420,h=500;
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(rot);ctx.scale(k*sn,k*sn);ctx.fillStyle=C.brown;rr(-w/2-26,-h/2-26,w+52,h+120,48);ctx.fill();ctx.fillStyle='#3A2214';rr(-w/2-10,-h/2-10,w+20,h+20,40);ctx.fill();
+    ctx.save();rr(-w/2,-h/2,w,h,34);ctx.clip();const s=Math.max(w/im.width,h/im.height);const sw=w/s,sh=h/s;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,-w/2,-h/2,w,h);
+    ctx.fillStyle='rgba(242,179,61,.12)';ctx.fillRect(-w/2,-h/2,w,h);ctx.restore();
+    [[-w/2+40,h/2+50],[-w/2+100,h/2+50]].forEach(([x,y])=>{ctx.fillStyle=C.mustard;ctx.beginPath();ctx.arc(x,y,16,0,7);ctx.fill()});tx(RUN.photoCaps[i]||'',w/2-30,h/2+66,40,F.hand,C.cream2,{al:'right',w:'700'});ctx.restore()});
+  dancer(t,540,1735,.5)}
+
+// ---------- T1 ~ T2: the whole Garmin capture on a wooden 70s TV (never zoomed or covered); knob labels
+const CAP={w:1080,h:1483};
+function sceneCapture(t){bg(t,{cy:900,rays:.6});header(t,T1,'오늘의 기록','가민 커넥트 그대로');dancer(t,965,330,.42);
+  const sw=640,sh=sw*CAP.h/CAP.w,sx=190,sy=410;const k=boing(t,T1,.4);if(k<0)return;
+  ctx.save();ctx.translate(540,sy+sh/2);ctx.scale(k,k);ctx.translate(-540,-(sy+sh/2));
+  const g=ctx.createLinearGradient(0,sy-40,0,sy+sh+40);g.addColorStop(0,'#8A5532');g.addColorStop(1,'#5A3420');ctx.fillStyle=g;rr(sx-40,sy-40,sw+220,sh+80,40);ctx.fill();
+  ctx.strokeStyle='rgba(255,220,170,.25)';ctx.lineWidth=2;for(let i=0;i<9;i++){ctx.beginPath();ctx.moveTo(sx-40,sy-20+i*(sh+40)/8);ctx.bezierCurveTo(sx+200,sy-10+i*(sh+40)/8,sx+500,sy-30+i*(sh+40)/8,sx+sw+180,sy-20+i*(sh+40)/8);ctx.stroke()}
+  ctx.fillStyle='#2A1A10';rr(sx-12,sy-12,sw+24,sh+24,30);ctx.fill();ctx.save();rr(sx,sy,sw,sh,22);ctx.clip();ctx.drawImage(IMG.garmin,sx,sy,sw,sh);ctx.restore();
+  [[sx+sw+90,sy+120],[sx+sw+90,sy+280]].forEach(([x,y],i)=>{ctx.fillStyle='#E9D9B8';ctx.beginPath();ctx.arc(x,y,44,0,7);ctx.fill();ctx.fillStyle=C.brown;ctx.save();ctx.translate(x,y);ctx.rotate(t*(i?.6:-.4)+i);ctx.fillRect(-4,-40,8,32);ctx.restore()});
+  for(let i=0;i<6;i++){ctx.fillStyle='#2A1A10';rr(sx+sw+50,sy+420+i*36,80,16,8);ctx.fill()}
+  ctx.restore();
+  const REG=[[0,.405,'지도'],[.41,.565,'제목'],[.575,1,'기록']];const hb=beatsFrom(T1+BPER,6);
+  REG.forEach(([a,b,lab],i)=>{const q=boing(t,hb[i*2]);if(q<0)return;const cy=sy+(a+b)/2*sh;ctx.save();ctx.translate(92,cy);ctx.scale(q,q);ctx.fillStyle=C.mustard;ctx.beginPath();ctx.arc(0,0,56,0,7);ctx.fill();
+    ctx.strokeStyle=C.brown;ctx.lineWidth=4;ctx.stroke();tx(lab,0,12,34,F.kd,C.brown,{al:'center'});ctx.restore();ctx.strokeStyle=C.brown;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(150,cy);ctx.lineTo(sx-52,cy);ctx.stroke()})}
+
+// ---------- T2 ~ T3: splits as 70s stripe pills, 1km to the last km top to bottom
+function sceneSplits(t){bg(t,{cy:1000,rays:.5});header(t,T2,'구간 기록','1km마다 걸린 시간  막대가 길수록 빠름');dancer(t,965,330,.42);
+  const lo=Math.min(...LAPS)-25,hi=Math.max(...LAPS)+15;const rh=Math.min(112,900/NL);
+  LAPS.forEach((s,k)=>{const t0=T2+.05+k*BPER/2+(k%2?BPER*.08:0);const q=boing(t,t0,.3);if(q<0)return;const y=420+k*rh;const isF=k===FAST,isS=k===SLOW;
+    const len=lerp(220,560,(hi-s)/(hi-lo))*clamp(q);const cols=isF?[C.red,C.orange,C.mustard]:isS?[C.teal,'#5BB5B0','#9AD3CF']:[C.brown,C.orange,C.mustard];
+    tx(lapLabel(k),90,y+56,38,F.kd,C.brown);
+    ctx.save();rr(200,y+10,len,64,32);ctx.clip();cols.forEach((c,j)=>{ctx.fillStyle=c;ctx.fillRect(200,y+10+j*21.3,len,22)});ctx.restore();
+    if(isF||isS){const tg=isF?'가장 빠름':'가장 느림';const tw_=tw(tg,26,F.kd)+28;ctx.fillStyle=C.cream2;rr(214,y+24,tw_,36,18);ctx.fill();tx(tg,214+tw_/2,y+51,26,F.kd,isF?C.red:C.teal,{al:'center'})}
+    tx(pace(s),200+len+22,y+62,50,F.retro,isF?C.red:isS?C.teal:C.brown)});
+  const ft=T2+BPER*4.5;const q=boing(t,ft);if(q>=0){tx('평균페이스',92,1400,30,F.kr,C.brown2,{w:'700'});retroTx(pace(AVGP),90,1490,82,F.retro,{cols:[C.mustard],off:4,face:C.green});
+    tx('빠른 1km와 느린 1km 차이',990,1400,30,F.kr,C.brown2,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),990,1482,60,F.kd,C.orange,{al:'right'})}}
+
+// ---------- T3 ~ T4: pace graph; the km of the fastest moment gets a sunburst spotlight, then a retro badge stays to the end of the scene
+const GX0=160,GX1=975,GY0=560,GY1=1110;
+const gx=d=>GX0+d/TOTD*(GX1-GX0),gy=p=>GY0+clamp((p-PLO)/(PHI-PLO))*(GY1-GY0);
+function sceneWave(t){bg(t,{rays:.35});header(t,T3,'페이스 그래프',`${(TOTD/1000).toFixed(2)}km 실제 페이스`);dancer(t,965,330,.42);
+  const WS=[];let c=T3+.1;for(let k=0;k<NL;k++){WS.push(c);c+=k===SK?BPER*2:BPER/3}
+  const SK0=WS[SK],SK1=SK0+BPER*2;const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
+  const prog=k=>k===SK?Math.pow(P(t,SK0,SK1),1.4):eo3(P(t,WS[k],WS[k]+.2));
+  let dR=0;for(let k=0;k<NL;k++){const q=prog(k);if(q>0)dR=Math.max(dR,lerp(k*1000,kEnd(k),q))}
+  const sp=P(t,SK0,SK0+.15);
+  for(let p=Math.ceil(PLO/60)*60;p<=PHI;p+=60){const y=gy(p);ctx.strokeStyle=C.brown3;ctx.lineWidth=2;ctx.setLineDash([8,10]);ctx.beginPath();ctx.moveTo(GX0,y);ctx.lineTo(GX1,y);ctx.stroke();ctx.setLineDash([]);
+    tx(pace(p),GX0-14,y+8,22,F.kr,C.brown2,{al:'right',w:'700'})}
+  for(let k=0;k<=NL;k++){const x=gx(Math.min(k*1000,TOTD));tx(k===NL?`${(TOTD/1000).toFixed(2)}km`:String(k),x,GY1+40,22,F.kr,C.brown2,{al:k===NL?'right':'center',w:'700'})}
+  const sx0=gx(SK*1000),sx1=gx(kEnd(SK));
+  if(sp>0){ctx.save();ctx.globalAlpha*=sp;ctx.beginPath();ctx.rect(sx0,GY0-80,sx1-sx0,GY1-GY0+80);ctx.clip();ctx.translate((sx0+sx1)/2,GY0+40);ctx.rotate(t*.6);for(let i=0;i<16;i++){ctx.fillStyle=i%2?'rgba(242,179,61,.45)':'rgba(232,100,43,.3)';ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,900,i/16*Math.PI*2,(i+1)/16*Math.PI*2);ctx.fill()}ctx.restore()}
+  LAPS.forEach((s,k)=>{if(t<WS[k])return;const x0=gx(k*1000),x1=gx(kEnd(k));const isK=k===SK&&sp>0;const col=isK?C.red:k===FAST?C.orange:k===SLOW?C.teal:C.brown;
+    tx(pace(s),(x0+x1)/2,GY0-36,isK?32:26,F.retro,col,{al:'center',a:isK?1:1-.45*sp})});
+  const pts=PSER.filter(q=>q[0]<=dR).map(q=>[gx(q[0]),gy(q[1]),q[0]]);
+  if(pts.length>1){ctx.save();ctx.globalAlpha*=1-.4*sp;ctx.beginPath();ctx.moveTo(pts[0][0],GY1);pts.forEach(q=>ctx.lineTo(q[0],q[1]));ctx.lineTo(pts[pts.length-1][0],GY1);ctx.closePath();ctx.clip();
+    [C.orange,C.mustard,'#F7D58B'].forEach((c,j)=>{ctx.fillStyle=c;ctx.globalAlpha=.35;ctx.fillRect(GX0,GY0+j*0,GX1-GX0,GY1-GY0)});ctx.restore();
+    const line=(arr,col,wd,al)=>{if(arr.length<2)return;ctx.save();ctx.globalAlpha*=al;ctx.strokeStyle=col;ctx.lineWidth=wd;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();arr.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore()};
+    line(pts,C.brown,5,1-.5*sp);if(sp>0)line(pts.filter(q=>q[2]>=SK*1000-30&&q[2]<=kEnd(SK)),C.red,8,1)}
+  if(t>=SK1){const x=gx(MAXD),y=gy(MAXP);ctx.fillStyle=C.red;ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=3;ctx.stroke();
+    const k=boing(t,SK1+BPER*.5,.4);if(k>=0){ctx.save();ctx.translate(470,700);ctx.rotate(-.04);ctx.scale(k,k);ctx.strokeStyle=C.brown;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(300,0);ctx.lineTo(x-470-18,y-700);ctx.stroke();
+      ctx.fillStyle=C.brown;rr(-300+8,-104+8,600,208,40);ctx.fill();ctx.fillStyle=C.mustard;rr(-300,-104,600,208,40);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=4;rr(-300,-104,600,208,40);ctx.stroke();
+      tx(SPRINT_T,-268,-44,38,F.kd,C.brown);tx('순간 최고',-268,40,26,F.kr,C.brown,{w:'700'});tx(pace(MAXP),-138,66,84,F.retro,C.red);
+      tx(`${lapLabel(SK)} 구간`,268,6,26,F.kr,C.brown,{al:'right',w:'700'});tx(pace(LAPS[SK]),268,66,48,F.retro,C.brown,{al:'right'});ctx.restore()}}
+  const rb=[T3+BPER*2,T3+BPER*2.5,T3+BPER*3];
+  [['평균페이스',pace(AVGP),C.green],['최고 페이스',pace(MAXP),C.red],['총 거리',(TOTD/1000).toFixed(2)+'km',C.orange]].forEach(([l,v,c],i)=>{const k=boing(t,rb[i]);if(k<0)return;
+    tx(l,90+i*310,1300,28,F.kr,C.brown2,{w:'700'});ctx.save();ctx.translate(90+i*310,1384);ctx.scale(k,k);tx(v,0,0,70,F.retro,c);ctx.restore()});
+  if(t>rb[2]+BPER)tx(SPLIT_LINE,540,1520,56,F.hand,C.brown,{al:'center',w:'700'})}
+
+// ---------- T4 ~ T5: heart rate zones as rounded 70s stripes in zone colours (Garmin order 5존 -> 존 미만)
+function sceneZones(t){bg(t,{rays:.5,cy:1100});header(t,T4,'심박존별 시간','가민 심박존 기준');dancer(t,965,330,.42);
+  [5,4,3,2,1,0].forEach((z,r)=>{const t0=T4+.05+r*BPER/2.5;const q=boing(t,t0,.3);if(q<0)return;const y=420+r*126;const sec=ZS[z];const col=ZT[z];
+    ctx.save();ctx.translate(150,y+32);ctx.scale(q,q);ctx.fillStyle=col;rr(-62,-30,124,60,30);ctx.fill();tx(z?`${z}존`:'존 미만',0,z?14:10,z?38:26,F.kd,'#fff',{al:'center'});ctx.restore();
+    tx(zRange(z),150,y+90,22,F.kr,C.brown2,{al:'center',w:'700'});
+    const len=sec>0?Math.max(30,520*sec/ZMAX)*eo3(P(t,t0,t0+.5)):0;if(len>0){ctx.fillStyle=col;rr(250,y+6,len,52,26);ctx.fill();ctx.fillStyle='rgba(255,255,255,.25)';rr(250,y+10,len,14,7);ctx.fill()}
+    const x2=250+(sec>0?Math.max(30,520*sec/ZMAX):0)+22;tx(mmss(sec),x2,y+52,48,F.retro,sec>0?C.brown:'rgba(90,52,32,.35)');tx(`${Math.round(sec/ZTOT*100)}%`,x2+tw(mmss(sec),48,F.retro)+12,y+50,26,F.kr,col,{w:'900'})});
+  const hb=[T4+BPER*3,T4+BPER*3.5];
+  [['평균심박수',S.avgHR],['최대심박수',S.maxHR]].forEach(([l,v],k)=>{const q=boing(t,hb[k]);if(q<0)return;const al=k?'right':'left',x=k?990:90;tx(l,x,1270,30,F.kr,C.brown2,{al,w:'700'});
+    const vw=tw(String(v),92,F.retro),uw=tw('bpm',28,F.kr,'700');tx(String(v),k?x-uw-10:x,1370,92,F.retro,hrCol(v),{al});tx('bpm',k?x:x+vw+10,1370,28,F.kr,C.brown2,{al,w:'700'})});
+  if(t>hb[1]+BPER*.5){tx(ZONE_LINE,540,1480,54,F.hand,C.brown,{al:'center',w:'700'});tx(BREAK_LINE,540,1540,26,F.kr,BRK.length?C.orange:C.brown2,{al:'center',w:'700'})}}
+
+// ---------- T5 ~ 30: the song's final section and ending: groovy title, 완주 starburst, stats, the memo with emphasis, Star Runner dancing to the end
+function memoStyle(){const COL={num:C.orange,body:C.red,plan:C.brown,feel:C.teal,key:C.brown};
+  return{px:44,headScale:1.15,glow:0,k:0,
+    font:(px,kind)=>kind==='num'?`${Math.round(px*.82)}px "${F.retro}"`:`700 ${px}px "${F.hand}"`,
+    color:(kind,k)=>!kind?C.brown:k>.5?COL[kind]:C.brown,
+    decorate:(c,kind,x,y,w,px,k)=>{if(k<=0)return;
+      if(kind==='plan'){c.save();c.fillStyle='rgba(242,179,61,.75)';c.beginPath();c.roundRect(x-4,y-px*.72,(w+8)*k,px*.95,px*.45);c.fill();c.restore()}
+      else if(kind==='body'){c.save();c.strokeStyle=C.red;c.lineWidth=3.5;c.lineCap='round';c.beginPath();for(let i=0;i<=w*k;i+=3){const yy=y+10+Math.sin(i*.28)*3.5;i?c.lineTo(x+i,yy):c.moveTo(x+i,yy)}c.stroke();c.restore()}
+      else if(kind==='num'){c.save();c.fillStyle='rgba(232,100,43,.18)';c.beginPath();c.ellipse(x+w/2,y-px*.3,(w/2+10)*k,px*.55*k,0,0,7);c.fill();c.restore()}
+      else if(kind==='feel'){c.save();c.strokeStyle=C.teal;c.lineWidth=3;c.beginPath();c.ellipse(x+w/2,y-px*.3,w/2+12,px*.6,0,0,Math.PI*2*k);c.stroke();c.restore()}
+      else{c.save();c.fillStyle=C.brown;c.fillRect(x,y+9,w*k,3);c.restore()}}}}
+let ML=null;
+function sceneLoop(t){bg(t,{cy:560});const lb=beatsFrom(T5,16);
+  tx('오늘의 러닝',90,150,36,F.kd,C.orange,{a:t>=T5?1:0});
+  {const k=boing(t,T5,.4);if(k>=0){ctx.save();ctx.translate(90,260);ctx.scale(k,k);retroTx(RUN.title,0,0,112,F.kd,{off:6});ctx.restore()}}
+  {const k=boing(t,lb[1],.45);if(k>=0){ctx.save();ctx.translate(880,210);ctx.rotate(t*.5);ctx.scale(k,k);ctx.fillStyle=C.red;ctx.beginPath();for(let i=0;i<32;i++){const r=i%2?66:88;const a=i/32*Math.PI*2;ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fill();ctx.rotate(-t*.5-.15);tx('완주',0,14,42,F.kd,C.cream2,{al:'center'});ctx.restore()}}
+  dancer(t,540,850,1.0);
+  const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.orange],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
+    ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.brown]];
+  CR.forEach(([l,v,u,c],i)=>{const k=boing(t,lb[2]+BPER/2*i+(i%2?BPER*.08:0),.35);if(k<0)return;const col=i%3,row=Math.floor(i/3);const cx=90+col*310+140,cy=950+row*150;
+    ctx.save();ctx.translate(cx,cy);ctx.scale(k,k);ctx.fillStyle=C.cream2;rr(-140,-62,280,128,28);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=3;rr(-140,-62,280,128,28);ctx.stroke();
+      tx(l,0,-24,24,F.kr,C.brown2,{al:'center',w:'700'});const vw=tw(v,52,F.retro),uw=u?tw(u,22,F.kr,'700')+6:0;tx(v,-uw/2,40,52,F.retro,c,{al:'center'});if(u)tx(u,-uw/2+vw/2+6,38,22,F.kr,C.brown2,{w:'700'});ctx.restore()});
+  // memo card with emphasis (skill running-memo-emphasis, 70s style)
+  const mt=lb[6];const q=boing(t,mt,.4);if(q>=0){const x=70,y=1255,w=940,h=420;ctx.save();ctx.translate(540,y+h/2);ctx.scale(q,q);ctx.translate(-540,-(y+h/2));
+    ctx.fillStyle=C.brown;rr(x+10,y+10,w,h,36);ctx.fill();ctx.fillStyle=C.cream2;rr(x,y,w,h,36);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=4;rr(x,y,w,h,36);ctx.stroke();
+    [C.orange,C.mustard,C.brown].forEach((c,j)=>{ctx.fillStyle=c;ctx.fillRect(x+40+j*26,y+34,18,18)});tx('러닝 메모',x+130,y+54,32,F.kd,C.brown);
+    const MLN=MemoEmphasis.parse(RUN.review,RUN.reviewMarks);const mo=memoStyle();
+    if(!ML){for(let px=46;px>=32;px-=2){mo.px=px;if(MLN.every(l=>MemoEmphasis.width(ctx,l,mo)<=w-110)){ML={px};break}}if(!ML)ML={px:32}}mo.px=ML.px;
+    const lh=ML.px*1.42,top=y+80+(h-80-MLN.length*lh)/2+ML.px*.95;
+    MLN.forEach((ln,i)=>{const t1=mt+BPER*(.5+.5*i);const p=boing(t,t1,.3);if(p<0)return;mo.k=eo3(P(t,t1+.35,t1+.75));ctx.save();ctx.translate(540,top+i*lh);ctx.scale(1,clamp(p,0,1.2));MemoEmphasis.drawLine(ctx,ln,0,0,mo);ctx.restore()});
+    ctx.restore()}}
+
+// ---------- timeline
+const SCENES=[[0,sceneIntro],[T1,sceneCapture],[T2,sceneSplits],[T3,sceneWave],[T4,sceneZones],[T5,sceneLoop]];
+function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';ctx.fillStyle=C.cream;ctx.fillRect(0,0,W,H);
+  if(DR)DR.draw(danceState(t));
+  let k=0;SCENES.forEach(([s],i)=>{if(t>=s)k=i});
+  const s0=SCENES[k][0];if(k>0&&t<s0+.22){SCENES[k-1][1](Math.min(t,s0-.001));const p=P(t,s0-.22,s0+.22);ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();SCENES[k][1](t);ctx.restore()}else SCENES[k][1](t);
+  bassLine(t);
+  SCENES.slice(1).forEach(([s])=>stripeWipe(t,s));
+  const fi=1-P(t,0,.4);if(fi>0){ctx.fillStyle=`rgba(246,231,200,${fi})`;ctx.fillRect(0,0,W,H)}}
+window.render=render;window.DUR=DUR;
+(async()=>{buildPaper();await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
+  const fams=[[F.retro,''],[F.kd,''],[F.kr,'700'],[F.kr,'900'],[F.hand,'700']];
+  await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;
+  GLC=document.createElement('canvas');DR=await Dancer3D.init(GLC,{px:DPX});window.READY=true;
+  const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}})();
+</script></body></html>
