@@ -1,0 +1,288 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script src="data.js"></script>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// =====================================================================
+// 2안 : 도트 게임 스테이지 (8-bit). Same content rules as 1안.
+// =====================================================================
+const W=1080,H=1920,DUR=30,PXS=6;               // PXS: size of one "game pixel" on screen
+// ---------- per-run text (title / memo are not in the FIT file); keep the memo's own line breaks
+const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
+  review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',
+  photos:['img/photo1.jpg','img/photo2.jpg'],
+  photoEggs:[{n:'jump',x:400,y:1060,h:110},{n:'point',x:560,y:1290,h:120,flip:true}],
+  stage:'1126'};
+const S0=DATA.session;
+const INFO={title:RUN.title,memo:RUN.memo,review:RUN.review,date:S0.date,dateLong:S0.dateLong,kcal:S0.kcal,avgHR:S0.avgHR,maxHR:S0.maxHR,cad:S0.cad};
+const C={sky0:'#0B1026',sky1:'#161B44',sky2:'#262463',ink:'#0B1026',white:'#F4F4F0',dim:'rgba(244,244,240,.6)',mint:'#3FE0B5',yel:'#FFD452',pink:'#FF92A2',org:'#FF8A3D',blu:'#4AB3F4',grn:'#3DDC84',red:'#F0524F',win:'#141A3A',winB:'#F4F4F0'};
+const ZC=['#7F8891','#AEB6BF','#4AB3F4','#3DDC84','#F5A623','#F0524F'];
+const ZNAME=['','워밍업','쉬움','유산소','한계치','최대'];
+const F={px:'Press Start 2P',kr:'Noto Sans KR'};
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const LR=document.createElement('canvas');LR.width=W/PXS;LR.height=H/PXS;const lx=LR.getContext('2d');   // low-res pixel layer
+const MO=document.createElement('canvas');const mo=MO.getContext('2d');                                  // mosaic helper
+
+// ---------- utils
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo3=t=>1-Math.pow(1-t,3),ei3=t=>t*t*t,eio3=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const eoBack=(t,s=1.7)=>1+(s+1)*Math.pow(t-1,3)+s*Math.pow(t-1,2);
+const step=(v,n)=>Math.floor(v*n)/n;                       // quantised (choppy, game-like) easing
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const font=(px,fam,w='')=>`${w} ${px}px "${fam}"`.trim();
+const mmss=s=>{s=Math.round(s);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
+const mss=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+const pace=s=>{s=Math.round(s);return `${Math.floor(s/60)}'${String(s%60).padStart(2,'0')}"`};
+const zoneOf=h=>DATA.zones.filter(b=>h>=b).length;
+const snap=v=>Math.round(v/PXS)*PXS;
+
+// ---------- data
+const R=DATA.route,TOTAL=S0.dist,TT=S0.time,AVGP=TT/(TOTAL/1000);
+const LAPS=DATA.laps.map(l=>l[1]/(l[0]/1000)),LAPD=DATA.laps.map(l=>l[0]),NL=LAPS.length;
+const LAPSTART=(()=>{let c=0;return LAPD.map(d=>{const a=c;c+=d;return a})})();
+const lapLabel=(i,u='K')=>LAPD[i]>=990?`${i+1}${u}`:`${(LAPD[i]/1000).toFixed(2)}`;
+const FAST=Math.min(...LAPS),SLOW=Math.max(...LAPS);
+const MAXP=(DATA.maxPace&&DATA.maxPace.sec)||FAST;
+const PSER=DATA.paceSeries||[];const HR=DATA.hr;
+const dsec=s=>{s=Math.round(s);return s>=60?`${Math.floor(s/60)}분 ${s%60}초`:`${s}초`};
+const SPLIT_LINE=(()=>{const sp=SLOW-FAST;if(sp<=20)return'흔들림 없이 같은 리듬으로';if(LAPS[NL-1]===FAST&&LAPS[0]>=SLOW-5)return'갈수록 빨라지고 마지막은 스퍼트';if(LAPS[NL-1]===FAST)return'마지막 1km는 스퍼트';return'구간마다 리듬을 바꿔가며'})();
+const ZONE_LINE=(()=>{const zs=DATA.zoneSec,tot=zs.reduce((a,b)=>a+b,0);const o=[1,2,3,4,5].sort((a,b)=>zs[b]-zs[a]);const a=o[0],b=o[1];const two=zs[b]/tot>=.15;const mz=zoneOf(INFO.maxHR);
+  let s=two?`${Math.min(a,b)}존과 ${Math.max(a,b)}존을 오가며`:`대부분 ${a}존에서`;if(mz>Math.max(a,two?b:a))s+=` 마지막엔 ${mz}존까지`;else s+=Math.max(a,b)<=2?' 숨 고르며 편안하게':' 힘있게';return s})();
+
+// ---------- images
+const IMG={};['wave','cheer','point','jump','front','fq','fql','run_sheet','garmin'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
+const PHOTOS=RUN.photos.map(s=>{const im=new Image();im.src=s;return im});
+
+// ---------- pixel layer helpers
+function lclear(){lx.setTransform(1,0,0,1,0,0);lx.clearRect(0,0,LR.width,LR.height);lx.imageSmoothingEnabled=true}
+function lflush(a=1){ctx.save();ctx.globalAlpha=a;ctx.imageSmoothingEnabled=false;ctx.drawImage(LR,0,0,W,H);ctx.restore()}
+// dot sprite: draw a pose PNG small on the low-res layer (pixelates when flushed); x,y = feet in screen px, h in screen px
+function dot(n,x,y,h,{flip=false,alpha=1}={}){const im=IMG[n];const hh=h/PXS,ww=im.width*hh/im.height;lx.save();lx.globalAlpha=alpha;lx.translate(Math.round(x/PXS),Math.round(y/PXS));if(flip)lx.scale(-1,1);lx.drawImage(im,-ww/2,-hh,ww,hh);lx.restore()}
+function dotRun(x,y,h,t,flip=false){const im=IMG.run_sheet;const cw=im.width/8,ch=im.height/6;const f=Math.floor((((t%0.8)+0.8)%0.8)*15)*4%48;   // 15 fps for a chunky 8-bit feel
+  const hh=h/PXS,ww=cw*hh/ch;lx.save();lx.translate(Math.round(x/PXS),Math.round(y/PXS));if(flip)lx.scale(-1,1);lx.drawImage(im,(f%8)*cw,Math.floor(f/8)*ch,cw,ch,-ww/2,-hh,ww,hh);lx.restore()}
+// mosaic draw of an image covering the screen, block = size of one mosaic cell in screen px
+function mosaic(im,block,z=1,alpha=1){const b=Math.max(1,block);const w=Math.max(2,Math.round(W/b)),h=Math.max(2,Math.round(H/b));MO.width=w;MO.height=h;mo.imageSmoothingEnabled=true;
+  mo.drawImage(im,w/2-w/2*z,h/2-h/2*z,w*z,h*z);ctx.save();ctx.globalAlpha=alpha;ctx.imageSmoothingEnabled=b<=1.01;ctx.drawImage(MO,0,0,W,H);ctx.restore()}
+
+// ---------- background: pixel night sky + stars + skyline (period 2.5 s for the loop)
+const STARS=Array.from({length:70},(_,i)=>[Math.floor(rnd(i*3.1)*180),Math.floor(rnd(i*7.7)*230),rnd(i*1.3)]);
+const SKY=Array.from({length:40},(_,i)=>[i*9,Math.floor(10+rnd(i*5.3)*28),Math.floor(4+rnd(i*2.9)*6)]);
+function bgGame(t,{scroll=0,city=true,dim=0}={}){
+  lclear();const g=lx.createLinearGradient(0,0,0,320);g.addColorStop(0,C.sky0);g.addColorStop(.6,C.sky1);g.addColorStop(1,C.sky2);lx.fillStyle=g;lx.fillRect(0,0,180,320);
+  // dithered horizon bands
+  lx.fillStyle='#2E2A6E';for(let y=250;y<320;y+=2)for(let x=(y/2)%2;x<180;x+=2)if(y>270||rnd(x*.3+y)>.6)lx.fillRect(x,y,1,1);
+  STARS.forEach(([x,y,b],i)=>{const tw=Math.sin(t*2.5*Math.PI*.8+b*20)>.6;lx.fillStyle=tw?C.white:'#8A90C8';lx.fillRect(x,y,1,1);if(b>.85){lx.fillRect(x-1,y,3,1);lx.fillRect(x,y-1,1,3)}});
+  if(city){const off=((scroll%360)+360)%360;lx.fillStyle='#0E1230';SKY.forEach(([x,h,w])=>{for(const k of[0,360]){const xx=Math.floor(x-off+k);if(xx>-12&&xx<190){lx.fillRect(xx,320-60-h,w,h+60)}}});
+    lx.fillStyle='#FFD45288';SKY.forEach(([x,h,w],i)=>{for(const k of[0,360]){const xx=Math.floor(x-off+k);if(xx>-12&&xx<190)for(let yy=0;yy<h-4;yy+=4)if(rnd(i*13+yy)>.55)lx.fillRect(xx+1+((yy/4)%2),320-60-h+2+yy,1,1)}})}
+  lflush();if(dim>0){ctx.fillStyle=`rgba(5,7,20,${dim})`;ctx.fillRect(0,0,W,H)}}
+
+// ---------- text with a hard game shadow
+function text(txt,x,y,px,fam,col,{align='left',alpha=1,w='',sh=true,shCol='#05071A',ls=0}={}){
+  ctx.save();ctx.globalAlpha*=alpha;ctx.font=font(px,fam,w);ctx.textAlign=align;ctx.letterSpacing=ls+'px';
+  if(sh){const o=Math.max(3,Math.round(px/12));ctx.fillStyle=shCol;ctx.fillText(txt,x+o,y+o)}ctx.fillStyle=col;ctx.fillText(txt,x,y);ctx.restore()}
+function tw(txt,px,fam,w=''){ctx.save();ctx.font=font(px,fam,w);const v=ctx.measureText(txt).width;ctx.restore();return v}
+function pxt(txt,x,y,px,col,o={}){text(txt,x,y,px,F.px,col,o)}                 // pixel font
+function kr(txt,x,y,px,col,o={}){text(txt,x,y,px,F.kr,col,Object.assign({w:'900'},o))}
+// game window: white pixel border, dark fill, hard shadow; open = 0..1 (opens vertically in steps)
+function win(x,y,w,h,open=1,{fill=C.win,border=C.winB,title=null,tcol=C.yel}={}){if(open<=0)return;const hh=snap(h*step(open,6));const yy=snap(y+(h-hh)/2);x=snap(x);w=snap(w);
+  ctx.fillStyle='#05071A';ctx.fillRect(x+PXS*2,yy+PXS*2,w,hh);ctx.fillStyle=fill;ctx.fillRect(x,yy,w,hh);
+  ctx.fillStyle=border;ctx.fillRect(x,yy,w,PXS);ctx.fillRect(x,yy+hh-PXS,w,PXS);ctx.fillRect(x,yy,PXS,hh);ctx.fillRect(x+w-PXS,yy,PXS,hh);
+  ctx.fillStyle=fill;[[x,yy],[x+w-PXS,yy],[x,yy+hh-PXS],[x+w-PXS,yy+hh-PXS]].forEach(([a,b])=>ctx.fillRect(a,b,PXS,PXS));   // notched corners
+  if(title&&open>=1){const tw2=tw(title,20,F.px)+36;ctx.fillStyle=C.ink;ctx.fillRect(x+24,yy-14,tw2,28);pxt(title,x+42,yy+10,20,tcol,{sh:false})}}
+function cursorTri(x,y,col=C.yel){const s=PXS;ctx.fillStyle=col;for(let i=0;i<4;i++)ctx.fillRect(snap(x)+i*s,snap(y)-(3-i)*s,s,(3-i)*2*s+s)}
+function hud(t,label){pxt(`STAGE ${RUN.stage}`,60,250,20,C.mint,{sh:false});text(label,1020,252,26,F.kr,C.white,{align:'right',w:'700',sh:false});
+  pxt(`TIME ${mmss(TT*clamp(t/20))}`,60,1640,18,C.dim,{sh:false});pxt(`${String(Math.min(60,Math.floor(t*2)+1)).padStart(2,'0')}/60`,1020,1640,18,C.dim,{align:'right',sh:false})}
+// pixel dissolve: blocks cover the screen in a fixed random order (p 0..1)
+function dissolve(p,col=C.ink,bs=60){if(p<=0)return;ctx.fillStyle=col;for(let y=0;y<H;y+=bs)for(let x=0;x<W;x+=bs)if(rnd(x*.37+y*.11)<p)ctx.fillRect(x,y,bs,bs)}
+function burst(x,y,t,t0,{n=14,col=C.yel,r=140,seed=1}={}){const p=P(t,t0,t0+.6);if(p<=0||p>=1)return;lclear();for(let i=0;i<n;i++){const a=i/n*Math.PI*2+rnd(seed+i);const d=eo3(p)*r*(0.6+rnd(seed+i*3)*.6);
+  lx.fillStyle=i%3?col:C.white;const bx=Math.round((x+Math.cos(a)*d)/PXS),by=Math.round((y+Math.sin(a)*d)/PXS);const s=p<.6?2:1;lx.fillRect(bx,by,s,s)}lflush(1-p*.3)}
+
+// =============== SCENE 1 : opening, photos (mosaic) + Garmin capture window (0 - 4.8)
+const CAP={w:1080,h:1873,s:.6};
+const CAMK=[[2.2,{z:1,fy:936,ay:1080}],[2.7,{z:1.32,fy:300,ay:860}],[2.95,{z:1.32,fy:300,ay:860}],[3.3,{z:1.28,fy:960,ay:1020}],[3.75,{z:1.28,fy:1560,ay:1180}],[4.2,{z:1,fy:936,ay:1080}]];
+function key(t,K){if(t<=K[0][0])return K[0][1];for(let i=0;i<K.length-1;i++){const [a,va]=K[i],[b,vb]=K[i+1];if(t<=b){const e=eio3((t-a)/(b-a));const o={};for(const k in va)o[k]=lerp(va[k],vb[k],e);return o}}return K[K.length-1][1]}
+function sceneOpen(t){
+  const NP=PHOTOS.length,slot=1.2/NP;const k=Math.min(NP-1,Math.floor(t/slot)),lt=t-k*slot;
+  if(t<1.75){// mosaic resolve in, then pixelate back into the backdrop
+    const back=P(t,1.2,1.6);const blk=back>0?lerp(1,30,step(back,6)):Math.max(1,lerp(40,1,step(P(lt,0,.32),6)));
+    mosaic(PHOTOS[k],blk,lerp(1.08,1,P(lt,0,slot+.4)),1);ctx.fillStyle=`rgba(5,7,26,${.25+back*.55})`;ctx.fillRect(0,0,W,H);
+    const g=ctx.createLinearGradient(0,1100,0,1920);g.addColorStop(0,'rgba(5,7,26,0)');g.addColorStop(1,`rgba(5,7,26,${.85*(1-back)})`);ctx.fillStyle=g;ctx.fillRect(0,1100,W,820);
+    const eg=RUN.photoEggs[k];if(eg&&back<.5&&lt>.15){lclear();dot(eg.n,eg.x,eg.y+Math.round(Math.sin(t*6)*2)*PXS,eg.h,{flip:eg.flip});lflush()}
+  }
+  if(t>=1.2){bgGame(t,{scroll:t*8,dim:.2});ctx.globalAlpha=1-P(t,1.2,1.6);if(ctx.globalAlpha>0){mosaic(PHOTOS[NP-1],30);}ctx.globalAlpha=1}
+  // title: big lower third -> header
+  const hp=eio3(P(t,1.2,1.6));const r1=P(t,.3,.5),r2=P(t,.45,.65),r3=P(t,.6,.8);
+  const ty=lerp(1460,380,hp),ts=lerp(150,84,hp);
+  kr(INFO.title,70,ty,ts,C.white,{alpha:step(r1,4)});
+  if(hp<1){kr(INFO.memo,74,ty+80,40,C.yel,{alpha:step(r2,4)*(1-hp*2)});text(INFO.dateLong,74,ty+132,28,F.kr,C.white,{w:'700',alpha:step(r3,4)*(1-hp*2)})}
+  if(hp>=1){const mx=70+tw(INFO.title,84,F.kr,'900')+26;kr(INFO.memo,mx,346,32,C.yel,{w:'700'});text(INFO.dateLong,mx,388,22,F.kr,C.white,{w:'700'})}
+  if(t<1.2){pxt('PRESS START',540,1700,22,C.yel,{align:'center',alpha:Math.floor(t*4)%2?1:.25})}
+  // capture in a game window, camera explores it with a ▶ cursor
+  const op=P(t,1.55,1.85);if(op>0){const ex=P(t,4.25,4.55);const wx=snap(540-CAP.w*CAP.s/2-18),wy=470,ww=snap(CAP.w*CAP.s+36),wh=1160;
+    win(wx,wy,ww,wh,op*(1-ex),{title:'RECORD'});
+    if(op>=1&&ex<1){const c=key(t,CAMK);const sc=CAP.s*c.z;ctx.save();ctx.beginPath();ctx.rect(wx+PXS*2,wy+PXS*2,ww-PXS*4,wh-PXS*4);ctx.clip();
+      ctx.translate(540,c.ay);ctx.scale(sc,sc);ctx.translate(-CAP.w/2,-c.fy);ctx.drawImage(IMG.garmin,0,0,CAP.w,CAP.h);ctx.restore();
+      const foc=P(t,2.6,2.75)*(1-P(t,3.8,3.95));if(foc>0){const yy=c.ay;cursorTri(wx-48+Math.round(Math.sin(t*12))*PXS,yy,C.yel);pxt(t<3.05?'MAP':t<3.5?'MEMO':'STATS',wx-12,yy-70,18,C.yel,{align:'right',alpha:foc})}}}
+  // a dot Star Runner pops on the window's top edge
+  if(t>3.75&&t<4.3){lclear();const p=step(P(t,3.75,3.95),4)*(1-step(P(t,4.15,4.3),4));if(p>0){dot('wave',900,470+(1-p)*80,120)}ctx.save();ctx.beginPath();ctx.rect(0,0,W,470);ctx.clip();lflush();ctx.restore()}
+  dissolve(P(t,4.45,4.8));
+  if(t>=1.6)hud(t,'오늘의 기록');else{pxt(`STAGE ${RUN.stage}`,60,250,20,C.mint,{sh:false})}
+}
+
+// =============== SCENE 2 : stage map = pace terrain (4.8 - 9.6)
+const MAP={x0:96,x1:984,y0:1250,y1:700,col:12};
+const MPLO=Math.floor((Math.min(MAXP,FAST,...PSER.map(p=>p[1]))-8)/10)*10;
+const MPHI=Math.ceil((Math.max(SLOW,(()=>{const s=PSER.map(p=>p[1]).sort((a,b)=>a-b);return s[Math.floor(s.length*.98)]||SLOW})())+10)/10)*10;
+const yOfP=p=>lerp(MAP.y0-30,MAP.y1+30,(MPHI-clamp(p,MPLO,MPHI))/(MPHI-MPLO));
+const xOfD=d=>lerp(MAP.x0,MAP.x1,clamp(d/TOTAL));
+const COLS=(()=>{const n=Math.round((MAP.x1-MAP.x0)/MAP.col),o=[];for(let i=0;i<n;i++){const d0=TOTAL*i/n,d1=TOTAL*(i+1)/n;const v=PSER.filter(p=>p[0]>=d0&&p[0]<d1).map(p=>p[1]);
+  const pv=v.length?v.reduce((a,b)=>a+b,0)/v.length:(o.length?o[o.length-1].p:SLOW);o.push({x:MAP.x0+i*MAP.col,d:(d0+d1)/2,p:pv})}return o})();
+const MR0=5.2,MR1=8.0;
+function sceneMap(t){
+  bgGame(t,{scroll:60+t*4,dim:.15});hud(t,'스테이지 맵');
+  kr('구간 페이스',70,360,56,C.white);pxt('STAGE MAP',72,410,18,C.mint,{sh:false});
+  win(60,470,960,110,P(t,4.95,5.15));if(P(t,5.15,5.3)>0){const s=SPLIT_LINE;const n=Math.ceil(s.length*P(t,5.15,5.9));kr(s.slice(0,n),96,542,44,C.white,{w:'900'})}
+  const ap=P(t,4.95,5.2);
+  // pace grid (faster = higher)
+  for(let v=Math.ceil(MPLO/30)*30;v<=MPHI;v+=30){const y=snap(yOfP(v));if(ap>0){ctx.fillStyle='rgba(244,244,240,.14)';for(let x=MAP.x0;x<MAP.x1;x+=24)ctx.fillRect(x,y,12,3);pxt(pace(v),MAP.x0-14,y+8,14,C.dim,{align:'right',sh:false,alpha:ap})}}
+  pxt('FAST',MAP.x0+8,MAP.y1+10,14,C.yel,{sh:false,alpha:ap});
+  // terrain revealed by the runner
+  const rp=P(t,MR0,MR1);const xNow=lerp(MAP.x0,MAP.x1,rp);
+  COLS.forEach((c,i)=>{if(c.x>xNow)return;const top=snap(yOfP(c.p));const fast=c.d>=LAPSTART[NL-1];
+    ctx.fillStyle='#5A3A2A';ctx.fillRect(c.x,top+12,MAP.col,MAP.y0-top-12);
+    ctx.fillStyle='#6E4A33';for(let y=top+18;y<MAP.y0;y+=12)if(rnd(i*7+y)>.6)ctx.fillRect(c.x+(i%2)*6,y,6,6);
+    ctx.fillStyle=c.p<=FAST+1?C.yel:C.grn;ctx.fillRect(c.x,top,MAP.col,12);ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(c.x,top,MAP.col,3)});
+  ctx.fillStyle=C.white;ctx.fillRect(MAP.x0,MAP.y0,MAP.x1-MAP.x0,PXS);
+  // km flags + lap pace (coin pop)
+  LAPS.forEach((s,i)=>{const xe=xOfD(LAPSTART[i]+LAPD[i]);if(xNow<xe-2&&rp<1)return;const ci=Math.min(COLS.length-1,Math.max(0,Math.round((xe-MAP.x0)/MAP.col)-1));const top=snap(yOfP(COLS[ci].p));
+    const fast=s===FAST,slow=s===SLOW;const col=fast?C.yel:slow?C.blu:C.white;const pp=step(P(t,MR0+(MR1-MR0)*(xe-MAP.x0)/(MAP.x1-MAP.x0),MR0+(MR1-MR0)*(xe-MAP.x0)/(MAP.x1-MAP.x0)+.2),4);
+    ctx.fillStyle=C.white;ctx.fillRect(snap(xe)-3,top-84,6,84);ctx.fillStyle=col;ctx.fillRect(snap(xe)+3,top-84,30,18);
+    pxt(lapLabel(i),xe,MAP.y0+40,16,C.white,{align:'center',sh:false});ctx.fillStyle=C.white;ctx.fillRect(snap(xe)-3,MAP.y0,6,12);
+    const xm=xOfD(LAPSTART[i]+LAPD[i]/2);pxt(pace(s),xm,MAP.y0+80,fast||slow?16:14,col,{align:'center',alpha:pp,sh:false})});
+  // runner on the terrain
+  if(rp>0&&rp<1.02){const ci=Math.min(COLS.length-1,Math.floor((xNow-MAP.x0)/MAP.col));const top=snap(yOfP(COLS[ci].p));lclear();dotRun(Math.min(xNow,MAP.x1-10),top,96,t);lflush()}
+  if(rp>=1){lclear();dot('cheer',MAP.x1-30,snap(yOfP(COLS[COLS.length-1].p)),108);lflush()}
+  // instantaneous max pace star
+  {const mx=xOfD(DATA.maxPace?DATA.maxPace.dist:TOTAL),my=snap(yOfP(MAXP));const tm=MR0+(MR1-MR0)*(mx-MAP.x0)/(MAP.x1-MAP.x0);
+   if(t>tm&&MAXP<FAST-3){burst(mx,my-40,t,tm,{col:C.yel,seed:5});kr(`순간 최고 ${pace(MAXP)}`,mx-50,my-30,30,C.yel,{align:'right',alpha:step(P(t,tm,tm+.2),3)});
+     ctx.fillStyle=C.yel;[[0,-2],[-1,-1],[0,-1],[1,-1],[-2,0],[-1,0],[0,0],[1,0],[2,0],[-1,1],[0,1],[1,1],[0,2]].forEach(([a,b])=>ctx.fillRect(snap(mx)+a*PXS-3,my-40+b*PXS,PXS,PXS))}}
+  // summary windows
+  const sp=P(t,8.1,8.3);win(60,1370,960,230,sp,{title:'RESULT'});if(sp>=1){
+    kr(`가장 빠른 1km  ${pace(FAST)}`,100,1440,34,C.yel,{w:'700'});kr(`가장 느린 1km  ${pace(SLOW)}`,100,1494,34,C.blu,{w:'700'});
+    if(MAXP<FAST-3)kr(`순간 최고 페이스  ${pace(MAXP)}`,100,1548,34,C.org,{w:'900'});kr(`차이 ${dsec(Math.round(SLOW)-Math.round(FAST))}`,980,1440,30,C.white,{align:'right',w:'700'})}
+  dissolve(P(t,9.3,9.6));
+}
+
+// =============== SCENE 3 : status screen (9.6 - 14.4)
+const ACC={dist:C.org,time:C.blu,pace:C.grn};
+function sceneStatus(t){
+  bgGame(t,{scroll:120+t*4,dim:.35});hud(t,'스테이터스');
+  kr('러닝 리포트',70,360,56,C.white);pxt('STATUS',72,410,18,C.mint,{sh:false});
+  // portrait window
+  const o1=P(t,9.7,9.95);win(60,470,330,420,o1,{title:'PLAYER'});
+  if(o1>=1){lclear();dot('cheer',225,840+Math.round(Math.abs(Math.sin(t*4))*-3)*PXS,300);lflush();kr(INFO.title,225,890-14,30,C.white,{align:'center',w:'900'})}
+  // stats window with a moving cursor
+  const o2=P(t,9.8,10.05);win(420,470,600,420,o2,{title:'STATUS'});
+  const rows=[['거리',(TOTAL/1000).toFixed(2),'km',ACC.dist],['시간',mmss(TT),'',ACC.time],['평균페이스',pace(AVGP),'/km',ACC.pace],['평균심박',String(INFO.avgHR),'bpm',ZC[zoneOf(INFO.avgHR)]],['최대심박',String(INFO.maxHR),'bpm',ZC[zoneOf(INFO.maxHR)]],['칼로리',String(INFO.kcal),'kcal',C.white]];
+  if(INFO.cad)rows.push(['케이던스',String(INFO.cad),'spm',C.white]);
+  const cur=Math.min(rows.length-1,Math.floor(Math.max(0,t-10.2)/.32));
+  if(o2>=1)rows.forEach((r,i)=>{const y=530+i*52;const vis=P(t,10.05+i*.06,10.15+i*.06);if(vis<=0)return;
+    if(i===cur&&t<12.6){ctx.fillStyle='rgba(255,212,82,.16)';ctx.fillRect(450,y-34,540,46);cursorTri(450,y-12,C.yel)}
+    text(r[0],486,y,28,F.kr,C.dim,{w:'700',sh:false});pxt(r[1],880,y,26,r[3],{align:'right'});if(r[2])text(r[2],890,y,20,F.kr,r[3],{w:'700',sh:false})});
+  // splits window
+  const o3=P(t,10.5,10.75);win(60,940,960,600,o3,{title:'SPLITS'});
+  if(o3>=1){const rowsN=Math.ceil(NL/2);const rh=Math.min(110,480/rowsN);LAPS.forEach((s,i)=>{const c=i%2,r=Math.floor(i/2);const x=110+c*470,y=1030+r*rh;const p=step(P(t,10.8+i*.08,10.9+i*.08),2);if(p<=0)return;
+    const fast=s===FAST,slow=s===SLOW;const col=fast?C.yel:slow?C.blu:C.white;
+    pxt(lapLabel(i),x,y,18,C.dim,{sh:false});pxt(pace(s),x+380,y+4,30,col,{align:'right'});
+    if(fast||slow){kr(fast?'가장 빠름':'가장 느림',x+120,y,22,col,{w:'900',sh:false});if(fast){ctx.fillStyle=C.yel;[[0,-1],[-1,0],[0,0],[1,0],[0,1]].forEach(([a,b])=>ctx.fillRect(x+96+a*PXS,y-10+b*PXS,PXS,PXS))}}
+    ctx.fillStyle='rgba(244,244,240,.12)';ctx.fillRect(x,y+22,380,PXS/2)})}
+  dissolve(P(t,14.1,14.4));
+}
+
+// =============== SCENE 4 : heart gauges (14.4 - 18.0)
+function sceneZones(t){
+  bgGame(t,{scroll:180+t*4,dim:.35});hud(t,'심박 게이지');
+  kr('심박존별 시간',70,360,56,C.white);text(`평균 ${INFO.avgHR}  최대 ${INFO.maxHR} bpm`,72,410,26,F.kr,C.dim,{w:'700',sh:false});
+  const zs=DATA.zoneSec,tot=zs.reduce((a,b)=>a+b,0),Z=DATA.zones;
+  const o=P(t,14.5,14.75);win(60,460,960,560,o,{title:'HR ZONE'});
+  if(o>=1)[5,4,3,2,1,0].forEach((z,r)=>{const y=530+r*80;const p=step(P(t,14.75+r*.06,14.85+r*.06),2);if(p<=0)return;
+    const range=z===5?`${Z[4]} 이상`:z===0?`${Z[0]} 미만`:`${Z[z-1]}-${Z[z]-1}`;
+    kr(z?`${z}존`:'존 미만',100,y,30,ZC[z],{w:'900'});text(`${range}  ${ZNAME[z]}`,230,y-2,22,F.kr,C.dim,{w:'700',sh:false});
+    // segmented gauge (10 cells)
+    const fill=zs[z]/tot*eo3(P(t,15.0+r*.06,15.6+r*.06));for(let k=0;k<10;k++){const x=230+k*42;ctx.fillStyle='rgba(244,244,240,.12)';ctx.fillRect(x,y+12,36,18);if(fill*10>k){ctx.fillStyle=ZC[z];ctx.fillRect(x,y+12,fill*10-k>=1?36:Math.max(6,snap(36*(fill*10-k))),18)}}
+    pxt(mss(zs[z]),850,y+18,22,C.white,{align:'right'});pxt(`${Math.round(zs[z]/tot*100)}%`,990,y+18,18,z===1?C.white:C.dim,{align:'right',sh:false})});
+  // HR history as pixel bars
+  const o2=P(t,15.3,15.55);win(60,1060,960,420,o2,{title:'HR LOG'});
+  if(o2>=1){const x0=110,x1=900,y0=1440,y1=1110,lo=60,hi=185;const yv=b=>lerp(y0,y1,(b-lo)/(hi-lo));const n=Math.floor((x1-x0)/12);
+    [1,2,3,4,5].forEach(z=>{const yb=snap(yv(Z[z-1]));ctx.fillStyle=ZC[z];for(let x=x0;x<x1;x+=18)ctx.fillRect(x,yb,9,3);pxt(`Z${z}`,x1+20,yb+(z===5?-4:-6)+8,14,ZC[z],{sh:false})});
+    const rp=P(t,15.55,16.7);for(let i=0;i<n*rp;i++){const k=Math.floor(i/n*HR.length);const b=HR[k];const top=snap(yv(b));ctx.fillStyle=ZC[zoneOf(b)];ctx.fillRect(x0+i*12,top,12,y0-top)}
+    ctx.fillStyle=C.white;ctx.fillRect(x0,y0,x1-x0,PXS);
+    const BRK=DATA.breaks||[];const msg=BRK.length?`중간에 ${BRK.length}번 멈춤  급수 또는 휴식`:'중간 멈춤 없이 연속 달리기';pxt('',0,0,1,'#000');
+    kr(msg,1000,1105,22,BRK.length?C.org:C.mint,{align:'right',w:'700',alpha:P(t,16.7,16.9),sh:false})}
+  win(60,1510,960,100,P(t,16.6,16.8));if(P(t,16.8,16.9)>0){const n=Math.ceil(ZONE_LINE.length*P(t,16.8,17.4));kr(ZONE_LINE.slice(0,n),96,1578,36,C.white,{w:'900'})}
+}
+
+// =============== SCENE 5 : STAGE CLEAR (18.0 - 20.0)
+function sceneClear(t){
+  bgGame(t,{scroll:240+t*10,dim:.1});const p=P(t,18.0,18.3);
+  const fl=t<18.12?1-P(t,18.0,18.12):0;if(fl>0){ctx.fillStyle=`rgba(255,255,255,${fl})`;ctx.fillRect(0,0,W,H)}
+  const cols=[C.yel,C.mint,C.pink,C.blu];const col=cols[Math.floor(t*8)%4];
+  pxt('STAGE',540,780,96,col,{align:'center',alpha:step(p,3)});pxt('CLEAR',540,920,96,col,{align:'center',alpha:step(P(t,18.15,18.4),3)});
+  kr('완주',540,1060,80,C.white,{align:'center',alpha:step(P(t,18.35,18.55),3)});
+  pxt(`${(TOTAL/1000).toFixed(2)}KM  ${mmss(TT)}`,540,1150,30,C.white,{align:'center',alpha:P(t,18.5,18.7)});
+  [[260,520,18.2,1],[820,560,18.45,2],[540,430,18.7,3],[300,1250,18.95,4],[800,1220,19.2,5]].forEach(([x,y,t0,s])=>burst(x,y,t,t0,{n:18,col:[C.yel,C.pink,C.mint,C.blu,C.org][s-1],r:180,seed:s*11}));
+  lclear();const j=Math.abs(Math.sin((t-18)*Math.PI*1.6));dot(j>.5?'jump':'cheer',540,1520-snap(j*90),170);lflush();
+  dissolve(P(t,19.7,20.0),C.sky0);
+}
+
+// =============== SCENE 6 : result + 10 s loop (20 - 30)
+const LT0=20,LP=2.5;
+function wrapLines(txt,px,maxW){ctx.save();ctx.font=font(px,F.kr,'700');const out=[];String(txt).split('\n').map(s=>s.trim()).filter(Boolean).forEach(par=>{let cur='';par.split(/\s+/).forEach(w=>{const tl=cur?cur+' '+w:w;if(ctx.measureText(tl).width<=maxW||!cur)cur=tl;else{out.push(cur);cur=w}});if(cur)out.push(cur)});ctx.restore();return out}
+const MB={x:60,y:1250,w:960,h:340};
+const MEMO=(()=>{for(let px=36;px>=22;px--){const lh=px*1.5;const l=wrapLines(INFO.review,px,MB.w-110);if(l.length*lh<=MB.h-90)return{px,lh,lines:l}}const px=22;return{px,lh:33,lines:wrapLines(INFO.review,22,MB.w-110).slice(0,7)}})();
+function sceneResult(t){
+  const ph=((t-LT0)/LP)%1;
+  bgGame(t,{scroll:(t-LT0)/LP*360/4,dim:0});        // skyline scrolls one tile per 4 loops (seamless at 30 s)
+  // ground strip + runner (loop)
+  ctx.fillStyle='#1B2A1E';ctx.fillRect(0,660,W,60);ctx.fillStyle=C.grn;ctx.fillRect(0,660,W,12);for(let x=-((t-LT0)*240%48);x<W;x+=48){ctx.fillStyle='#2E5A36';ctx.fillRect(x,684,24,12)}
+  lclear();dotRun(320,660,150,t);lflush();
+  pxt('RESULT',60,330,28,C.yel);hud(t,'결과');
+  const tp=P(t,20.1,20.4);kr(INFO.title,60,470,96,C.white,{alpha:step(tp,3)});
+  const mx=60+tw(INFO.title,96,F.kr,'900')+24;const mpx=Math.max(22,Math.min(34,Math.floor(34*(1010-mx)/tw(INFO.memo,34,F.kr,'700'))));
+  kr(INFO.memo,mx,430,mpx,C.yel,{w:'700',alpha:step(P(t,20.25,20.45),3)});text(INFO.dateLong,mx,470,22,F.kr,C.white,{w:'700',alpha:P(t,20.3,20.5),sh:false});
+  // stat cells
+  const st=[['거리',(TOTAL/1000).toFixed(2),'km',C.org],['시간',mmss(TT),'',C.blu],['평균페이스',pace(AVGP),'/km',C.grn],['평균심박',String(INFO.avgHR),'bpm',ZC[zoneOf(INFO.avgHR)]],['최대심박',String(INFO.maxHR),'bpm',ZC[zoneOf(INFO.maxHR)]],['칼로리',String(INFO.kcal),'kcal',C.white]];
+  st.forEach((s,i)=>{const c=i%3,r=Math.floor(i/3);const x=60+c*324,y=760+r*230;const o=P(t,20.4+i*.07,20.6+i*.07);win(x,y,300,200,o);if(o<1)return;
+    text(s[0],x+30,y+56,24,F.kr,C.dim,{w:'700',sh:false});pxt(s[1],x+30,y+130,s[1].length>5?30:36,s[3]);if(s[2])text(s[2],x+30,y+170,20,F.kr,s[3],{w:'700',sh:false})});
+  // RPG dialogue memo
+  const mo2=P(t,20.9,21.15);win(MB.x,MB.y,MB.w,MB.h,mo2,{title:'MEMO'});
+  if(mo2>=1){const total=MEMO.lines.reduce((a,l)=>a+l.length,0);const dur=Math.min(2.6,Math.max(.9,total*.03));let acc=0;let last=null;
+    const top=MB.y+46+(MB.h-90-MEMO.lines.length*MEMO.lh)/2;
+    MEMO.lines.forEach((ln,i)=>{const t0=21.2+dur*acc/total,t1=21.2+dur*(acc+ln.length)/total;acc+=ln.length;const p=P(t,t0,t1);if(p<=0)return;const s=ln.slice(0,Math.ceil(ln.length*p));
+      const y=top+i*MEMO.lh+MEMO.lh*.7;kr(s,MB.x+56,y,MEMO.px,C.white,{w:'700',sh:false});last=[MB.x+56+tw(s,MEMO.px,F.kr,'700'),y]});
+    if(t>21.2+dur&&Math.floor(t*2.5)%2===0){cursorTri(MB.x+MB.w-60,MB.y+MB.h-30,C.yel)}}
+  // loop sparkles (period 2.5 s)
+  [[880,560,0],[980,620,.33],[760,600,.66]].forEach(([x,y,o])=>{const q=(ph+o)%1;if(q<.5){const s=q<.25?1:2;ctx.fillStyle=C.yel;ctx.fillRect(snap(x),snap(y)-s*PXS,PXS,s*PXS*2+PXS);ctx.fillRect(snap(x)-s*PXS,snap(y),s*PXS*2+PXS,PXS)}});
+}
+
+// =============== master
+function render(t){
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';ctx.imageSmoothingEnabled=true;ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(t<4.8)sceneOpen(t);
+  else if(t<9.6)sceneMap(t);
+  else if(t<14.4)sceneStatus(t);
+  else if(t<18.0)sceneZones(t);
+  else if(t<20.0)sceneClear(t);
+  else sceneResult(t);
+}
+window.render=render;window.DUR=DUR;
+async function ready(){await Promise.all(Object.values(IMG).concat(PHOTOS).map(im=>im.decode()));
+  await Promise.all([[F.px,''],[F.kr,'900'],[F.kr,'700'],[F.kr,'500']].map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;window.READY=true;
+  const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}}
+ready();
+</script></body></html>
