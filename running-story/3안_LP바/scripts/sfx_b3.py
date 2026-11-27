@@ -42,6 +42,7 @@ ev(swish(.5, 300, 2500, .3), 5.75, 1, .4); ev(thud(80, .45), 6.2) # record slide
 ev(click(.45), 6.35, 1, .5); ev(swish(.5, 1500, 7000, .12), 6.4, 1, .4)   # tonearm lift and swing
 ev(thud(60, .55), 7.08); ev(crackle(.25, 200, .05) * 1.2, 7.08)  # needle drop just before the drop
 for t0 in (11.055, 15.536): ev(swish(.35, 1500, 8000, .12), t0 - .2)
+ev(click(.4), 14.12, 1, .4); ev(swish(.3, 2000, 9000, .1), 14.25, 1, -.2)   # sprint call-out
 ev(swish(.6, 400, 3000, .2), 19.85)
 ev(fade(crackle(10.0, 22, .012), 1.5, 1.0) * np.linspace(.35, 1, int(10 * SR)), 20.0, .6)   # crackle rises as the song fades
 pk = np.abs(out).max(); out *= 10 ** (-15 / 20) / pk                # stem peak -15 dBFS

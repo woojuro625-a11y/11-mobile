@@ -56,7 +56,7 @@ const PHOTOS=RUN.photos.map(src=>{const im=new Image();im.src=src;return im});
 function drawImg(n,cx,by,h,{rot=0,sx=1,alpha=1,filter='none'}={}){const im=IMG[n];const w=im.width*h/im.height;
   ctx.save();ctx.globalAlpha*=alpha;ctx.filter=filter;ctx.translate(cx,by);ctx.rotate(rot);ctx.scale(sx,1);ctx.drawImage(im,-w/2,-h,w,h);ctx.restore()}
 function drawRun(cx,by,h,t,{alpha=1}={}){const im=IMG.run_sheet;const cw=im.width/8,ch=im.height/6;const f=Math.floor((((t%0.8)+0.8)%0.8)*60)%48;
-  const w=cw*h/ch;ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,by);ctx.drawImage(im,(f%8)*cw,Math.floor(f/8)*ch,cw,ch,-w/2,-h,w,h);ctx.restore()}
+  const w=cw*h/ch;ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,by);ctx.scale(-1,1);ctx.drawImage(im,(f%8)*cw,Math.floor(f/8)*ch,cw,ch,-w/2,-h,w,h);ctx.restore()}
 
 // ---------- data
 const S=DATA.session,TOTD=S.dist,TT=S.time;
@@ -159,8 +159,8 @@ const CAP={w:1080,h:1483};   // Garmin capture with the memo text cut out (the m
 function sceneIntro(t){
   const lampIn=.35+.65*eo3(P(t,.2,1.2));drawBG(t,lampIn);
   const nOn=flick(t,.25)*(1-.45*P(t,2.3,2.7))*(1-P(t,6.9,7.3));
-  neon('LP Bar',540,250,150,F.neon,C.neon,nOn);
-  tx(`OPEN ${HHMM}`,540,322,30,F.mono,C.amber,{al:'center',w:'600',ls:10,a:flick(t,.75)*(1-.45*P(t,2.3,2.7))*(1-P(t,6.9,7.3)),glow:14});
+  neon('오늘의 러닝',540,262,150,F.pen,C.neon,nOn);
+  tx(`START ${HHMM}`,540,322,30,F.mono,C.amber,{al:'center',w:'600',ls:10,a:flick(t,.75)*(1-.45*P(t,2.3,2.7))*(1-P(t,6.9,7.3)),glow:14});
   // title + photos
   const tOut=P(t,2.25,2.7);const ti=eo3(P(t,.9,1.5));
   if(ti>0&&tOut<1){const a=ti*(1-tOut);
@@ -231,9 +231,19 @@ const gx=d=>GX0+d/TOTD*(GX1-GX0),gy=p=>GY0+clamp((p-PLO)/(PHI-PLO))*(GY1-GY0);
 function header(t,a,title,sub){if(a<=0)return;ctx.save();ctx.globalAlpha*=a;
   tx(title,236,250,62,F.krs,C.cream,{w:'900'});tx(sub,238,302,30,F.kr,C.amber,{w:'500'});
   tx('NOW PLAYING',990,206,20,F.mono,C.creamD,{al:'right',ls:5});tx(RUN.song,990,236,22,F.mono,C.amber,{al:'right',w:'600',ls:4});ctx.restore()}
+// km 1..N are drawn on half beats; the km holding the fastest moment gets two full beats under a spotlight,
+// then a call-out card stays up until the scene ends so the sprint can be read
+const BPER=(()=>{const d=BT.slice(1).map((b,i)=>b-BT[i]).sort((a,b)=>a-b);return d[Math.floor(d.length/2)]})();
+const SK=Math.min(NL-1,Math.floor(MAXD/1000));
+const WS=(()=>{const st=[];let c=11.055;for(let k=0;k<NL;k++){st.push(c);c+=k===SK?2*BPER:BPER/2}return st})();
+const SK0=WS[SK],SK1=WS[SK]+2*BPER;
+const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
 function sceneWave(t){drawBG(t);drawPlayer(t);const a=P(t,11.25,11.55)*(1-P(t,15.3,15.536));if(a<=0)return;
-  header(t,a,'페이스 그래프','1km마다 한 박자');ctx.save();ctx.globalAlpha*=a;
-  const WB=beatsFrom(11.055,NL);const revD=d=>{let r=0;WB.forEach((b,k)=>{const e=k<NL-1?(k+1)*1000:TOTD;r=Math.max(r,lerp(k*1000,e,eo3(P(t,b,b+.45))))});return r};const dR=revD();
+  header(t,a,'페이스 그래프',`${(TOTD/1000).toFixed(2)}km 실제 페이스`);ctx.save();ctx.globalAlpha*=a;
+  const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
+  const prog=k=>k===SK?Math.pow(P(t,SK0,SK1),1.5):eo3(P(t,WS[k],WS[k]+.25));
+  let dR=0;for(let k=0;k<NL;k++){const q=prog(k);if(q>0)dR=Math.max(dR,lerp(k*1000,kEnd(k),q))}
+  const sp=eo3(P(t,SK0,SK0+.3));                                         // spotlight on the sprint km
   // grid
   const pul=beatP(t);ctx.strokeStyle=`rgba(243,230,207,${.10+.08*pul})`;ctx.lineWidth=2;
   for(let p=Math.ceil(PLO/30)*30;p<=PHI;p+=30){const y=gy(p);ctx.setLineDash(p%60?[4,10]:[]);ctx.beginPath();ctx.moveTo(GX0,y);ctx.lineTo(GX1,y);ctx.stroke();
@@ -241,25 +251,37 @@ function sceneWave(t){drawBG(t);drawPlayer(t);const a=P(t,11.25,11.55)*(1-P(t,15
   ctx.setLineDash([]);
   for(let k=0;k<=NL;k++){const d=Math.min(k*1000,TOTD);const x=gx(d);ctx.strokeStyle='rgba(243,230,207,.10)';ctx.beginPath();ctx.moveTo(x,GY0-10);ctx.lineTo(x,GY1);ctx.stroke();
     tx(k===NL?`${(TOTD/1000).toFixed(2)}km`:String(k),x,GY1+44,24,F.mono,C.creamD,{al:k===NL?'right':'center'})}
+  const sx0=gx(SK*1000),sx1=gx(kEnd(SK));
+  if(sp>0){ctx.fillStyle=`rgba(255,77,109,${.11*sp*(1+.4*pul)})`;ctx.fillRect(sx0,GY0-70,sx1-sx0,GY1-GY0+70)}
   // km averages above the plot
-  LAPS.forEach((s,k)=>{const b=WB[k];const p=P(t,b,b+.25);if(p<=0)return;const x0=gx(k*1000),x1=gx(Math.min((k+1)*1000,TOTD));const col=k===FAST?C.amber:k===SLOW?C.blue:C.cream;
-    tx(pace(s),(x0+x1)/2,GY0-40-(1-eoBack(p))*16,30,F.serif,col,{al:'center',a:p});
-    ctx.save();ctx.globalAlpha*=p*.8;ctx.strokeStyle=col;ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(x0+4,gy(s));ctx.lineTo(x1-4,gy(s));ctx.stroke();ctx.restore()});
-  // the real pace line (about 9 s moving average) as a glowing waveform
-  const pts=PSER.filter(q=>q[0]<=dR).map(q=>[gx(q[0]),gy(q[1])]);
+  LAPS.forEach((s,k)=>{const p=P(t,WS[k],WS[k]+.25);if(p<=0)return;const x0=gx(k*1000),x1=gx(kEnd(k));const isK=k===SK;
+    const col=isK&&sp>0?C.neon:k===FAST?C.amber:k===SLOW?C.blue:C.cream;const dim=isK?1:1-.5*sp;
+    tx(pace(s),(x0+x1)/2,GY0-40-(1-eoBack(p))*16,isK?34:30,F.serif,col,{al:'center',a:p*dim});
+    ctx.save();ctx.globalAlpha*=p*.8*dim;ctx.strokeStyle=col;ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(x0+4,gy(s));ctx.lineTo(x1-4,gy(s));ctx.stroke();ctx.restore()});
+  // the real pace line (about 9 s moving average)
+  const pts=PSER.filter(q=>q[0]<=dR).map(q=>[gx(q[0]),gy(q[1]),q[0]]);
   if(pts.length>1){const g=ctx.createLinearGradient(0,GY0,0,GY1);g.addColorStop(0,'rgba(242,166,90,.35)');g.addColorStop(1,'rgba(242,166,90,0)');
-    ctx.beginPath();ctx.moveTo(pts[0][0],GY1);pts.forEach(q=>ctx.lineTo(q[0],q[1]));ctx.lineTo(pts[pts.length-1][0],GY1);ctx.closePath();ctx.fillStyle=g;ctx.fill();
-    ctx.save();ctx.strokeStyle=C.amber;ctx.lineWidth=4.5;ctx.lineJoin='round';ctx.shadowColor=C.amber;ctx.shadowBlur=14+14*pul;ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore();
-    const tip=pts[pts.length-1];if(t<15.0)drawRun(tip[0],tip[1]-4,46,t,{alpha:1-P(t,14.8,15.0)});}
-  // fastest moment
-  const mp=P(t,WB[NL-1]+.35,WB[NL-1]+.6);if(mp>0){const x=gx(MAXD),y=gy(MAXP);ctx.save();ctx.globalAlpha*=mp;
-    ctx.strokeStyle=C.neon;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,14+10*beatP(t),0,7);ctx.stroke();ctx.fillStyle=C.neon;ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fill();
-    tx(`최고 ${pace(MAXP)}`,x-26,y-26,34,F.kr,C.neon,{al:'right',w:'700',glow:12});ctx.restore()}
+    ctx.save();ctx.globalAlpha*=1-.45*sp;ctx.beginPath();ctx.moveTo(pts[0][0],GY1);pts.forEach(q=>ctx.lineTo(q[0],q[1]));ctx.lineTo(pts[pts.length-1][0],GY1);ctx.closePath();ctx.fillStyle=g;ctx.fill();ctx.restore();
+    const line=(arr,col,blur,alpha)=>{if(arr.length<2)return;ctx.save();ctx.globalAlpha*=alpha;ctx.strokeStyle=col;ctx.lineWidth=4.5;ctx.lineJoin='round';ctx.shadowColor=col;ctx.shadowBlur=blur;ctx.beginPath();arr.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore()};
+    const inK=q=>q[2]>=SK*1000-30&&q[2]<=kEnd(SK);
+    line(pts,C.amber,14+14*pul,1-.55*sp);
+    if(sp>0)line(pts.filter(inK),C.neon,20+16*pul,sp);
+    const tip=pts[pts.length-1];if(t<SK1+.5)drawRun(tip[0],tip[1]-4,46,t,{alpha:1-P(t,SK1+.3,SK1+.5)});}
+  // the fastest moment: marker + drop line, then a call-out that stays until the scene ends
+  const mp=P(t,SK1,SK1+.22);if(mp>0){const x=gx(MAXD),y=gy(MAXP);ctx.save();ctx.globalAlpha*=mp;
+    ctx.strokeStyle='rgba(255,77,109,.6)';ctx.lineWidth=2;ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(x,y+16);ctx.lineTo(x,GY1);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle=C.neon;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,(14+10*beatP(t))*eoBack(mp,2.5),0,7);ctx.stroke();ctx.fillStyle=C.neon;ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.fill();ctx.restore();
+    const cp=eo3(P(t,SK1+.12,SK1+.45));if(cp>0){const bx=200,by=600+(1-cp)*20,bw=560,bh=168;ctx.save();ctx.globalAlpha*=cp;
+      ctx.strokeStyle=C.neon;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(bx+bw,by+bh/2);ctx.lineTo(lerp(bx+bw,x-22,cp),lerp(by+bh/2,y,cp));ctx.stroke();
+      ctx.fillStyle='rgba(22,10,10,.9)';rr(bx,by,bw,bh,16);ctx.fill();ctx.shadowColor=C.neon;ctx.shadowBlur=18;ctx.strokeStyle=C.neon;ctx.lineWidth=2.5;rr(bx,by,bw,bh,16);ctx.stroke();ctx.shadowColor='transparent';
+      tx(SPRINT_T,bx+32,by+54,36,F.kr,C.cream,{w:'700'});
+      tx('순간 최고',bx+32,by+128,28,F.kr,C.creamD);tx(pace(MAXP),bx+170,by+134,66,F.serif,C.neon,{glow:14});
+      tx(`${lapLabel(SK)} 구간`,bx+bw-32,by+100,26,F.kr,C.creamD,{al:'right'});tx(pace(LAPS[SK]),bx+bw-32,by+142,40,F.serif,C.cream,{al:'right'});ctx.restore()}}
   // readout
   const RO=[['평균페이스',pace(AVGP),C.green],['최고 페이스',pace(MAXP),C.neon],['총 거리',(TOTD/1000).toFixed(2)+'km',C.amber]];
-  RO.forEach(([l,v,c],i)=>{const p=eo3(P(t,13.307+i*.28,13.307+i*.28+.35));if(p<=0)return;const x=90+i*310;
+  RO.forEach(([l,v,c],i)=>{const p=eo3(P(t,12.193+i*.28,12.193+i*.28+.35));if(p<=0)return;const x=90+i*310;
     ctx.save();ctx.globalAlpha*=p;tx(l,x,1320,28,F.kr,C.creamD);tx(v,x,1400+(1-p)*20,66,F.serif,c);ctx.restore()});
-  const lp=P(t,13.865+.6,14.6);if(lp>0)tx(SPLIT_LINE,540,1530,60,F.pen,C.cream,{al:'center',a:lp});
+  const lp=P(t,12.9,13.3);if(lp>0)tx(SPLIT_LINE,540,1530,60,F.pen,C.cream,{al:'center',a:lp});
   ctx.restore()}
 
 // ---------- 15.54 ~ 20.02  heart rate zones as an amplifier VU meter
