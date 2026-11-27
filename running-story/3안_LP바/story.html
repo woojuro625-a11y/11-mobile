@@ -297,7 +297,6 @@ function sceneZones(t){drawBG(t);drawPlayer(t);const a=P(t,15.536,15.8)*(1-P(t,1
     const lb=lastOf(BT,t),since=t-lb;const pump=t<b?0:since<.045?since/.045:Math.pow(clamp(1-(since-.045)/(BPER*(.8+.05*i))),1.5);
     const cur=lit*pump;const col=ZC[i];
     for(let s=0;s<NS;s++){const y=by-(s+1)*(sh+sg)+sg;const on=s<cur;ctx.fillStyle=on?col:'rgba(243,230,207,.06)';ctx.globalAlpha=a*(on?.72+.28*clamp(cur-s):1);ctx.fillRect(x,y,cw,sh)}
-    ctx.globalAlpha=a;if(t>=b&&sec>0){const y=by-lit*(sh+sg)+sg;ctx.fillStyle=col;ctx.globalAlpha=a*.95;ctx.fillRect(x,y,cw,sh);ctx.fillStyle='rgba(255,245,235,.85)';ctx.fillRect(x,y,cw,3)}   // peak hold at the max
     ctx.globalAlpha=a;
     const tp=P(t,b+.1,b+.4);if(tp>0){ctx.save();ctx.globalAlpha*=tp;const cx=x+cw/2;
       tx(`${i}존`,cx,by+52,38,F.kr,col,{al:'center',w:'700'});tx(zRange(i),cx,by+88,22,F.mono,C.creamD,{al:'center'});
