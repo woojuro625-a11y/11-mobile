@@ -1,4 +1,4 @@
-# 5안 aurora pulse: very soft air sounds under the song (scene dissolves, the drop bloom, a chime for 완주)
+# 5안 aurora: very soft air sounds under the song (scene dissolves, a chime for 완주)
 # usage: python3 sfx_b5a.py <beat.js> <out_sfx.wav>
 import sys, json, numpy as np
 from scipy.signal import butter, sosfilt
@@ -14,8 +14,7 @@ def air(dur=.7, lo=2000, hi=9000, v=.3):
 def chime(f0=932.33, v=.25):   # B-flat, in the song's key
     n = int(2.2 * SR); t = np.arange(n) / SR; x = sum(np.sin(2 * np.pi * f0 * m * t) * a for m, a in ((1, 1), (2.01, .4), (3.02, .15)))
     return x * np.exp(-t / .7) * np.minimum(1, t / .005) * v
-for x in (7.36, 11.05, 14.75, 20.25): ev(air(.6, 1500, 8000, .25), near(x) - .25)
-ev(air(1.4, 300, 6000, .35), near(3.67) - 1.3)                 # the inhale into the drop
-ev(chime(932.33, .25), near(18.44)); ev(chime(1396.9, .12), near(18.44) + .06, 1, .3)   # 완주
+for x in (4.39, 8.09, 11.78, 15.46, 19.14): ev(air(.6, 1500, 8000, .22), near(x) - .25)    # soft air as each scene dissolves in
+ev(chime(932.33, .22), near(19.14) + .3); ev(chime(1396.9, .1), near(19.14) + .36, 1, .3)          # the 완주 tag (B-flat, the song's key)
 pk = np.abs(out).max(); out *= 10 ** (-17 / 20) / pk
 wavfile.write(sys.argv[2], SR, (out * 32767).astype(np.int16)); print('sfx peak -17 dBFS')
