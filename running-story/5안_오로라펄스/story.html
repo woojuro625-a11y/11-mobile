@@ -1,0 +1,224 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script src="data.js"></script>
+<script src="beat.js"></script>
+<script src="drums.js"></script>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+const W=1080,H=1920,DUR=30;
+// ---------- per-run text (title / memo are not in the FIT file)
+const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
+  review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',   // keep the memo's own line breaks (\n)
+  photos:['img/photo1.jpg','img/photo2.jpg'],photoCaps:['11월 26일 밤','오후 7시 24분']};
+// ---------- look: aurora pulse (night sky, aurora that breathes with the song's sidechain pump, frosted glass cards)
+const C={white:'#F5F7FF',dim:'rgba(245,247,255,.62)',faint:'rgba(245,247,255,.16)',teal:'#3FF2C8',violet:'#8A5CFF',pink:'#FF5FA2',gold:'#FFC46B',blue:'#6FA8FF',green:'#5BE38F',orange:'#FFA55B'};
+const ZC=['#9AA3AD','#C9D0D8','#4AB3F4','#3DDC84','#F5A623','#F0524F'];          // zone colours (존 미만 1 2 3 4 5) on dark
+const hrCol=h=>ZC[DATA.zones.filter(b=>h>=b).length];
+const F={num:'Outfit',kr:'Noto Sans KR',pen:'Nanum Pen Script'};
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+// ---------- utils
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo3=t=>1-Math.pow(1-t,3),eio3=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const mmss=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+const pace=s=>{s=Math.round(s);return `${Math.floor(s/60)}'${String(s%60).padStart(2,'0')}"`};
+const dsec=s=>{s=Math.round(s);return s>=60?`${Math.floor(s/60)}분 ${s%60}초`:`${s}초`};
+function tx(s,x,y,px,fam,col,{w='',al='left',a=1,ls=0,maxW=0,glow=0,gcol=null}={}){
+  ctx.save();ctx.globalAlpha*=a;ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.textAlign=al;ctx.textBaseline='alphabetic';ctx.letterSpacing=ls+'px';ctx.fillStyle=col;if(glow){ctx.shadowColor=gcol||col;ctx.shadowBlur=glow}
+  const m=ctx.measureText(s).width;ctx.translate(x,y);if(maxW&&m>maxW)ctx.scale(maxW/m,1);ctx.fillText(s,0,0);ctx.restore()}
+function tw(s,px,fam,w='',ls=0){ctx.save();ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.letterSpacing=ls+'px';const m=ctx.measureText(s).width;ctx.restore();return m}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+// soft entrance: rise + fade + un-blur
+function soft(t,t0,d=.4){return eo3(P(t,t0,t0+d))}
+function softTx(t,t0,s,x,y,px,fam,col,o={}){const p=soft(t,t0,o.d||.45);if(p<=0)return;ctx.save();if(p<1)ctx.filter=`blur(${(1-p)*8}px)`;tx(s,x,y+(1-p)*24,px,fam,col,Object.assign({},o,{a:(o.a??1)*p}));ctx.restore()}
+
+// ---------- the song: 129 BPM melodic house; kick on every beat in the drops with a strong sidechain pump
+const BT=BEATS.map(b=>b[0]),DB=BEATS.filter(b=>b[1]).map(b=>b[0]);
+const BPER=(()=>{const d=BT.slice(1).map((b,i)=>b-BT[i]).sort((a,b)=>a-b);return d[Math.floor(d.length/2)]})();
+const lastOf=(arr,t)=>{let r=-1e9;for(const x of arr){if(x<=t)r=x;else break}return r};
+const KICKS=DRUMS.beats.filter(b=>b[1]>.45).map(b=>b[0]);
+// pump: ducks on the kick, swells back over the beat (like the audio); between kicks (intro / outro) it just breathes slowly
+const pump=t=>{const k=lastOf(KICKS,t);const e=t-k;if(e<BPER*1.5)return .55+.45*Math.pow(clamp(e/(BPER*.8)),.7);return .82+.18*Math.sin(t*2.2)};
+const kickHit=t=>{const k=lastOf(KICKS,t);return t-k<1?Math.exp(-(t-k)/.08):0};
+const beatP=(t,k=.12)=>{const b=lastOf(BT,t);return t-b<1?Math.exp(-(t-b)/k):0};
+const nearDB=x=>DB.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a,DB[0]);
+const beatsFrom=(t0,n)=>{const i=BT.findIndex(b=>b>=t0-.02);return BT.slice(i,i+n)};
+const T1=nearDB(3.67),T2=nearDB(7.36),T3=nearDB(11.05),TJ=nearDB(12.9),T4=nearDB(14.75),T5=nearDB(18.44),T6=nearDB(20.25);
+
+// ---------- images
+const IMG={};['garmin','front','wave'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
+const PHOTOS=RUN.photos.map(src=>{const im=new Image();im.src=src;return im});
+
+// ---------- data
+const S=DATA.session,TOTD=S.dist,TT=S.time;
+const LAPS=DATA.laps.map(l=>l[1]/(l[0]/1000)),LAPD=DATA.laps.map(l=>l[0]),NL=LAPS.length;
+const LAPR=LAPS.map(s=>Math.round(s));
+const FAST=LAPR.indexOf(Math.min(...LAPR)),SLOW=LAPR.indexOf(Math.max(...LAPR));
+const lapLabel=i=>LAPD[i]>=990?`${i+1}km`:`${(LAPD.slice(0,i+1).reduce((a,b)=>a+b,0)/1000).toFixed(2)}km`;
+const MAXP=(DATA.maxPace&&DATA.maxPace.sec)||Math.min(...LAPS),MAXD=(DATA.maxPace&&DATA.maxPace.dist)||TOTD;
+const PSER=DATA.paceSeries||[];const PSORT=PSER.map(x=>x[1]).sort((a,b)=>a-b);const P98=PSORT.length?PSORT[Math.floor(PSORT.length*.98)]:Math.max(...LAPS);
+const PLO=Math.floor((Math.min(MAXP,PSORT[0]||MAXP,...LAPS)-8)/10)*10,PHI=Math.ceil((Math.max(P98,...LAPS)+10)/10)*10;
+const AVGP=TT/(TOTD/1000);
+const SPLIT_LINE=(()=>{const sp=Math.max(...LAPR)-Math.min(...LAPR);const last=LAPR[NL-1],first=LAPR[0];
+  if(sp<=20)return'흔들림 없이 같은 리듬으로';if(last===Math.min(...LAPR)&&first>=Math.max(...LAPR)-5)return'갈수록 빨라지고 마지막은 스퍼트';
+  if(last===Math.min(...LAPR))return'마지막 1km는 스퍼트';return'구간마다 리듬을 바꿔 가며'})();
+const ZS=DATA.zoneSec,ZTOT=ZS.reduce((a,b)=>a+b,0),ZMAX=Math.max(...ZS);const ZTOP=ZS.slice(1).indexOf(Math.max(...ZS.slice(1)))+1;
+const ZONE_LINE=`가장 오래 머문 구간은 ${ZTOP}존 ${Math.round(ZS[ZTOP]/ZTOT*100)}%`;
+const zRange=i=>i===0?`${DATA.zones[0]-1} 이하`:i<5?`${DATA.zones[i-1]}~${DATA.zones[i]-1}`:`${DATA.zones[4]} 이상`;
+const BRK=DATA.breaks||[];
+const BREAK_LINE=BRK.length?`중간에 ${BRK.length}번 멈춤 ${dsec(BRK.reduce((a,b)=>a+b.dur,0))}`:'중간 멈춤 없이 연속 달리기';
+const MEMO=RUN.review.split('\n').map(s=>s.trim()).filter(Boolean);
+const SK=Math.min(NL-1,Math.floor(MAXD/1000));
+const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
+
+// ---------- sky: gradient + stars (prebuilt), aurora ribbons drawn small and blurred up every frame
+const SKY=document.createElement('canvas');SKY.width=W;SKY.height=H;
+function buildSky(){const g=SKY.getContext('2d');const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#050817');gr.addColorStop(.55,'#0B0F2A');gr.addColorStop(1,'#160B2E');g.fillStyle=gr;g.fillRect(0,0,W,H)}
+const STARS=[...Array(140)].map((_,i)=>[rnd(i*3.1)*W,rnd(i*5.7)*H*.9,.6+rnd(i*7.3)*1.8,rnd(i*9.1)]);
+const AUR=document.createElement('canvas');AUR.width=270;AUR.height=480;const ax=AUR.getContext('2d');
+function aurora(t,amp){ax.clearRect(0,0,270,480);ax.globalCompositeOperation='lighter';
+  const bands=[[C.teal,.30,0],[C.violet,.42,1.7],[C.pink,.55,3.1],[C.gold,.68,4.4]];
+  bands.forEach(([col,yb,ph],k)=>{const g=ax.createLinearGradient(0,0,0,480);
+    for(let x=0;x<=270;x+=3){const y=480*yb+Math.sin(x*.018+t*.5+ph)*38+Math.sin(x*.041-t*.8+ph*2)*16;const hgt=(90+60*Math.sin(x*.025+t*.35+ph))*amp;
+      const gg=ax.createLinearGradient(0,y-hgt,0,y+20);gg.addColorStop(0,'rgba(0,0,0,0)');gg.addColorStop(.75,col);gg.addColorStop(1,'rgba(0,0,0,0)');
+      ax.globalAlpha=(.10+.08*Math.sin(x*.07+t*1.3+ph))*amp;ax.fillStyle=gg;ax.fillRect(x,y-hgt,3,hgt+20)}});
+  ax.globalAlpha=1;ax.globalCompositeOperation='source-over'}
+function sky(t,lvl=1){ctx.drawImage(SKY,0,0);const pm=pump(t)*lvl;
+  STARS.forEach(([x,y,r,ph])=>{const tw=.35+.65*Math.abs(Math.sin(t*1.7+ph*20))*(.6+.4*beatP(t,.2));ctx.fillStyle=`rgba(245,247,255,${tw*.8})`;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()});
+  aurora(t,pm);ctx.save();ctx.globalCompositeOperation='lighter';ctx.filter='blur(26px)';ctx.drawImage(AUR,-40,-60,W+80,H+120);ctx.filter='none';ctx.globalAlpha=.6;ctx.drawImage(AUR,0,0,W,H);ctx.restore()}
+// frosted glass: blurred, brightened copy of the sky behind the card
+function glass(x,y,w,h,r=36,{a=1,tint='rgba(255,255,255,.07)',edge='rgba(255,255,255,.28)'}={}){if(a<=0)return;ctx.save();ctx.globalAlpha*=a;rr(x,y,w,h,r);ctx.clip();
+  ctx.filter='blur(22px) brightness(1.15) saturate(1.2)';ctx.drawImage(cv,x-30,y-30,w+60,h+60,x-30,y-30,w+60,h+60);ctx.filter='none';ctx.fillStyle=tint;ctx.fillRect(x,y,w,h);
+  const hl=ctx.createLinearGradient(x,y,x,y+h);hl.addColorStop(0,'rgba(255,255,255,.12)');hl.addColorStop(.25,'rgba(255,255,255,0)');ctx.fillStyle=hl;ctx.fillRect(x,y,w,h);ctx.restore();
+  ctx.save();ctx.globalAlpha*=a;ctx.strokeStyle=edge;ctx.lineWidth=1.5;rr(x+.75,y+.75,w-1.5,h-1.5,r);ctx.stroke();ctx.restore()}
+function header(t,t0,title,sub){softTx(t,t0,title,90,250,66,F.kr,C.white,{w:'800'});softTx(t,t0+.08,sub,92,304,26,F.kr,C.teal,{w:'500'})}
+
+// ---------- 0 ~ T1 (build): sky opens, photos float in on glass, title; the frame inhales into the drop
+function sceneIntro(t){sky(t,.35+.65*eo3(P(t,0,T1)));
+  softTx(t,.05,'오늘의 러닝',540,170,34,F.kr,C.teal,{al:'center',w:'500',ls:10});
+  const b=beatsFrom(0,8);
+  PHOTOS.forEach((im,i)=>{const t0=b[1+i];const p=soft(t,t0,.6);if(p<=0)return;const w=430,h=560,x=i?560:90,y=i?1010:940;const fy=Math.sin(t*1.1+i)*8;
+    glass(x-14,y-14+(1-p)*40+fy,w+28,h+90,34,{a:p});ctx.save();ctx.globalAlpha*=p;rr(x,y+(1-p)*40+fy,w,h,24);ctx.clip();if(p<1)ctx.filter=`blur(${(1-p)*10}px)`;
+    const s=Math.max(w/im.width,h/im.height);const sw=w/s,sh=h/s;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,x,y+(1-p)*40+fy,w,h);ctx.restore();
+    tx(RUN.photoCaps[i]||'',x+w/2,y+h+58+(1-p)*40+fy,44,F.pen,C.white,{al:'center',a:p})});
+  softTx(t,b[3],RUN.title,540,470,150,F.kr,C.white,{al:'center',w:'800',glow:30,gcol:C.violet});
+  softTx(t,b[3]+.15,RUN.memo,540,560,40,F.kr,C.gold,{al:'center',w:'500'});softTx(t,b[3]+.25,S.dateLong,540,615,30,F.kr,C.dim,{al:'center',w:'300'});
+  // inhale: the last bar before the drop slowly zooms and brightens toward the drop
+  const inh=P(t,T1-BPER*4,T1);if(inh>0){ctx.fillStyle=`rgba(255,255,255,${.12*inh*inh})`;ctx.fillRect(0,0,W,H)}}
+
+// ---------- T1 ~ T2 (drop): the whole Garmin capture on a glass sheet (never zoomed or covered), light labels
+const CAP={w:1080,h:1483};
+function sceneCapture(t){sky(t);header(t,T1,'오늘의 기록','가민 커넥트 그대로');
+  const cw=760,ch=cw*CAP.h/CAP.w,x=540-cw/2+30,y=390;const p=soft(t,T1,.5);
+  glass(x-18,y-18+(1-p)*40,cw+36,ch+36,34,{a:p});ctx.save();ctx.globalAlpha*=p;rr(x,y+(1-p)*40,cw,ch,20);ctx.clip();ctx.drawImage(IMG.garmin,x,y+(1-p)*40,cw,ch);ctx.restore();
+  const REG=[[0,.405,'지도',C.teal],[.41,.565,'제목',C.violet],[.575,1,'기록',C.pink]];const hb=beatsFrom(T1+BPER,6);
+  REG.forEach(([a,b,lab,col],i)=>{const t0=hb[i*2];const q=soft(t,t0,.35);if(q<=0)return;const cy=y+(a+b)/2*ch;const glowk=.5+.5*kickHit(t);
+    ctx.save();ctx.globalAlpha*=q;ctx.shadowColor=col;ctx.shadowBlur=24*glowk;ctx.fillStyle=col;rr(28,cy-28,92,56,28);ctx.fill();ctx.restore();
+    tx(lab,74,cy+10,28,F.kr,'#0B0F2A',{al:'center',w:'800',a:q});ctx.save();ctx.globalAlpha*=q*.8;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(122,cy);ctx.lineTo(x-6,cy);ctx.stroke();ctx.restore()})}
+
+// ---------- T2 ~ T3: splits, 1km to the last km top to bottom, light bars (longer = faster)
+function sceneSplits(t){sky(t);header(t,T2,'구간 기록','1km마다 걸린 시간  빛 막대가 길수록 빠름');
+  const pg=soft(t,T2,.4);glass(70,370,940,960,40,{a:pg});
+  const lo=Math.min(...LAPS)-25,hi=Math.max(...LAPS)+15;const rh=Math.min(108,880/NL);
+  LAPS.forEach((s,k)=>{const t0=T2+.1+k*BPER/2;const q=soft(t,t0,.35);if(q<=0)return;const y=420+k*rh;const isF=k===FAST,isS=k===SLOW;
+    const len=lerp(200,470,(hi-s)/(hi-lo))*q;const c1=isF?C.pink:isS?C.blue:C.teal,c2=isF?C.gold:isS?C.violet:C.violet;
+    tx(lapLabel(k),110,y+52,32,F.num,C.dim,{w:'500',a:q});
+    ctx.save();ctx.globalAlpha*=q;const g=ctx.createLinearGradient(230,0,230+len,0);g.addColorStop(0,c1);g.addColorStop(1,c2);ctx.fillStyle=g;ctx.shadowColor=c1;ctx.shadowBlur=14+10*kickHit(t);rr(230,y+22,len,26,13);ctx.fill();ctx.restore();
+    if(isF||isS)tx(isF?'가장 빠름':'가장 느림',230+len+16,y+46,24,F.kr,c1,{w:'800',a:q});
+    tx(pace(s),970,y+56,50,F.num,isF?C.pink:isS?C.blue:C.white,{al:'right',w:'600',a:q})});
+  const ft=nearDB(T2+4*BPER-.01)+BPER*2;softTx(t,ft,'평균페이스',92,1410,30,F.kr,C.dim,{w:'500'});softTx(t,ft,pace(AVGP),90,1500,86,F.num,C.green,{w:'700'});
+  softTx(t,ft+.1,'빠른 1km와 느린 1km 차이',990,1410,30,F.kr,C.dim,{al:'right',w:'500'});softTx(t,ft+.1,dsec(LAPR[SLOW]-LAPR[FAST]),990,1490,60,F.kr,C.gold,{al:'right',w:'800'})}
+
+// ---------- T3 ~ T4: pace graph as a glowing line; the km of the fastest moment lit pink from bar TJ, then a glass call-out
+const GX0=160,GX1=975,GY0=560,GY1=1110;
+const gx=d=>GX0+d/TOTD*(GX1-GX0),gy=p=>GY0+clamp((p-PLO)/(PHI-PLO))*(GY1-GY0);
+function sceneWave(t){sky(t);header(t,T3,'페이스 그래프',`${(TOTD/1000).toFixed(2)}km 실제 페이스`);
+  const WS=[];let c=T3+.1;for(let k=0;k<NL;k++){if(k===SK){c=Math.max(c,TJ);WS.push(c);c+=2*BPER}else{WS.push(c);c+=BPER/2}}
+  const SK0=WS[SK],SK1=SK0+2*BPER;const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
+  const prog=k=>k===SK?Math.pow(P(t,SK0,SK1),1.4):eo3(P(t,WS[k],WS[k]+.25));
+  let dR=0;for(let k=0;k<NL;k++){const q=prog(k);if(q>0)dR=Math.max(dR,lerp(k*1000,kEnd(k),q))}
+  const sp=P(t,SK0,SK0+.2);
+  for(let p=Math.ceil(PLO/60)*60;p<=PHI;p+=60){const y=gy(p);ctx.strokeStyle=C.faint;ctx.lineWidth=1.5;ctx.setLineDash([4,10]);ctx.beginPath();ctx.moveTo(GX0,y);ctx.lineTo(GX1,y);ctx.stroke();ctx.setLineDash([]);
+    tx(pace(p),GX0-14,y+8,22,F.num,C.dim,{al:'right',w:'500'})}
+  for(let k=0;k<=NL;k++){const x=gx(Math.min(k*1000,TOTD));tx(k===NL?`${(TOTD/1000).toFixed(2)}km`:String(k),x,GY1+40,22,F.num,C.dim,{al:k===NL?'right':'center',w:'500'})}
+  const sx0=gx(SK*1000),sx1=gx(kEnd(SK));if(sp>0){const g=ctx.createLinearGradient(0,GY0-80,0,GY1);g.addColorStop(0,`rgba(255,95,162,${.28*sp})`);g.addColorStop(1,'rgba(255,95,162,0)');ctx.fillStyle=g;ctx.fillRect(sx0,GY0-80,sx1-sx0,GY1-GY0+80)}
+  LAPS.forEach((s,k)=>{if(t<WS[k])return;const x0=gx(k*1000),x1=gx(kEnd(k));const isK=k===SK&&sp>0;const col=isK?C.pink:k===FAST?C.orange:k===SLOW?C.blue:C.white;
+    tx(pace(s),(x0+x1)/2,GY0-36,isK?34:28,F.num,col,{al:'center',w:'600',a:(isK?1:1-.5*sp)*soft(t,WS[k],.3)})});
+  const pts=PSER.filter(q=>q[0]<=dR).map(q=>[gx(q[0]),gy(q[1]),q[0]]);
+  const line=(arr,c1,c2,wd,al,glow)=>{if(arr.length<2)return;ctx.save();ctx.globalAlpha*=al;const g=ctx.createLinearGradient(GX0,0,GX1,0);g.addColorStop(0,c1);g.addColorStop(1,c2);ctx.strokeStyle=g;ctx.lineWidth=wd;ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowColor=c1;ctx.shadowBlur=glow;ctx.beginPath();arr.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore()};
+  line(pts,C.teal,C.violet,4.5,1-.55*sp,12+10*kickHit(t));if(sp>0)line(pts.filter(q=>q[2]>=SK*1000-30&&q[2]<=kEnd(SK)),C.pink,C.gold,7,1,22);
+  if(t>=SK1){const x=gx(MAXD),y=gy(MAXP);ctx.save();ctx.shadowColor=C.pink;ctx.shadowBlur=24;ctx.fillStyle=C.white;ctx.beginPath();ctx.arc(x,y,9+5*kickHit(t),0,7);ctx.fill();ctx.restore();
+    const ct=SK1+BPER/2;const q=soft(t,ct,.45);if(q>0){const bx=180,by=600+(1-q)*30,bw=620,bh=210;ctx.save();ctx.globalAlpha*=q;ctx.strokeStyle=C.pink;ctx.lineWidth=2;ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(bx+bw,by+bh/2);ctx.lineTo(x-14,y);ctx.stroke();ctx.restore();
+      glass(bx,by,bw,bh,30,{a:q,tint:'rgba(255,95,162,.12)',edge:'rgba(255,95,162,.6)'});
+      tx(SPRINT_T,bx+34,by+62,36,F.kr,C.white,{w:'800',a:q});tx('순간 최고',bx+34,by+108,24,F.kr,C.dim,{w:'500',a:q});tx(pace(MAXP),bx+34,by+186,78,F.num,C.pink,{w:'700',a:q,glow:16});
+      tx(`${lapLabel(SK)} 구간`,bx+bw-34,by+108,24,F.kr,C.dim,{al:'right',w:'500',a:q});tx(pace(LAPS[SK]),bx+bw-34,by+176,48,F.num,C.white,{al:'right',w:'600',a:q})}}
+  const rb=beatsFrom(T3+2*BPER-.02,3);
+  [['평균페이스',pace(AVGP),C.green],['최고 페이스',pace(MAXP),C.pink],['총 거리',(TOTD/1000).toFixed(2)+'km',C.gold]].forEach(([l,v,c],i)=>{softTx(t,rb[i],l,90+i*310,1300,28,F.kr,C.dim,{w:'500'});softTx(t,rb[i],v,90+i*310,1384,72,F.num,c,{w:'700'})});
+  if(t>rb[2]+BPER)softTx(t,rb[2]+BPER,SPLIT_LINE,540,1520,58,F.pen,C.white,{al:'center'})}
+
+// ---------- T4 ~ T5: heart rate zones as light columns that pump from 0 to their max on every kick
+function sceneZones(t){sky(t);header(t,T4,'심박존별 시간','가민 심박존 기준  킥마다 펌핑');
+  const pg=soft(t,T4,.4);glass(70,370,940,860,40,{a:pg});
+  const order=[0,1,2,3,4,5];const base=1000,maxH=520,cw=96,gap=52,x0=540-(6*cw+5*gap)/2;
+  order.forEach((z,i)=>{const x=x0+i*(cw+gap);const sec=ZS[z];const col=ZC[z];const t0=T4+.1+i*BPER/2;const q=soft(t,t0,.35);if(q<=0)return;
+    const max=sec>0?Math.max(10,maxH*sec/ZMAX):0;const k=lastOf(KICKS,t);const e=t-k;const pm=e<BPER*1.5?(e<.04?e/.04:Math.pow(clamp(1-(e-.04)/(BPER*.85)),1.4)):.5+.5*Math.sin(t*3);
+    const hgt=max*(t<t0+.3?q:pm);
+    if(hgt>0){ctx.save();const g=ctx.createLinearGradient(0,base-hgt,0,base);g.addColorStop(0,col);g.addColorStop(1,'rgba(255,255,255,.05)');ctx.fillStyle=g;ctx.shadowColor=col;ctx.shadowBlur=26;rr(x,base-hgt,cw,hgt,18);ctx.fill();ctx.restore()}
+    ctx.fillStyle='rgba(255,255,255,.08)';rr(x,base-maxH,cw,maxH,18);ctx.fill();
+    tx(z?`${z}존`:'존 미만',x+cw/2,base+56,z?36:26,F.kr,col,{al:'center',w:'800',a:q});tx(zRange(z),x+cw/2,base+88,20,F.num,C.dim,{al:'center',w:'500',a:q});
+    tx(mmss(sec),x+cw/2,base+142,40,F.num,sec>0?C.white:'rgba(245,247,255,.35)',{al:'center',w:'600',a:q});tx(`${Math.round(sec/ZTOT*100)}%`,x+cw/2,base+180,24,F.num,col,{al:'center',w:'600',a:q})});
+  const hb=beatsFrom(nearDB(T4+4*BPER-.01),3);
+  [['평균심박수',S.avgHR],['최대심박수',S.maxHR]].forEach(([l,v],k)=>{const al=k?'right':'left',x=k?990:90;softTx(t,hb[k],l,x,1320,30,F.kr,C.dim,{al,w:'500'});
+    const vw=tw(String(v),96,F.num,'700'),uw=tw('bpm',30,F.kr,'500');softTx(t,hb[k],String(v),k?x-uw-10:x,1418,96,F.num,hrCol(v),{al,w:'700'});softTx(t,hb[k],'bpm',k?x:x+vw+10,1418,30,F.kr,C.dim,{al,w:'500'})});
+  if(t>hb[2]){softTx(t,hb[2],ZONE_LINE,540,1540,58,F.pen,C.white,{al:'center'});softTx(t,hb[2]+.1,BREAK_LINE,540,1600,26,F.kr,BRK.length?C.orange:C.dim,{al:'center',w:'500'})}}
+
+// ---------- T5 ~ T6: one bar of light before the outro: 완주 rises out of the aurora
+function sceneFinal(t){sky(t,1.2);const p=soft(t,T5,.8);
+  tx('완주',540,900+(1-p)*40,220,F.kr,C.white,{al:'center',w:'800',a:p,glow:50,gcol:C.violet});
+  softTx(t,T5+BPER,`${(TOTD/1000).toFixed(2)}km  ${mmss(TT)}`,540,1010,48,F.num,C.teal,{al:'center',w:'600',ls:4})}
+
+// ---------- T6 ~ 30 (outro loop): title, six glass tiles, the memo on glass in handwriting, a tiny Star Runner drifting in the sky
+function memoLayout(maxW,maxLines){for(let px=50;px>=38;px-=2){if(MEMO.length<=maxLines&&MEMO.every(l=>tw(l,px,F.pen)<=maxW))return{px,lines:MEMO}}
+  for(let px=50;px>28;px-=2){const lines=[];for(const ln of MEMO){if(tw(ln,px,F.pen)<=maxW){lines.push(ln);continue}let cur='';for(const w of ln.split(' ')){const tt=cur?cur+' '+w:w;if(tw(tt,px,F.pen)>maxW&&cur){lines.push(cur);cur=w}else cur=tt}if(cur)lines.push(cur)}
+    if(lines.length<=maxLines)return{px,lines}}return{px:28,lines:MEMO.slice(0,maxLines)}}
+let ML=null;
+function sceneLoop(t){sky(t);const e=t-T6;const lb=beatsFrom(T6,16);
+  // Star Runner floating like an astronaut, slow drift (easter egg)
+  {const u=(e/9.75);const x=lerp(1000,820,u),y=330+Math.sin(e*.9)*14;const im=IMG[(e%4)>2.4&&(e%4)<3.4?'wave':'front'];const h=90;const w=im.width*h/im.height;
+    ctx.save();ctx.globalAlpha=.9*soft(t,T6+.6,.8);ctx.translate(x,y);ctx.rotate(Math.sin(e*.7)*.18);ctx.drawImage(im,-w/2,-h/2,w,h);ctx.restore()}
+  softTx(t,T6,'오늘의 러닝',90,170,32,F.kr,C.teal,{w:'500',ls:8});
+  softTx(t,T6+.1,RUN.title,90,290,110,F.kr,C.white,{w:'800',glow:24,gcol:C.violet});
+  {const q=soft(t,T6+.3,.4);ctx.save();ctx.globalAlpha*=q;const w=tw('완주',34,F.kr,'800')+44;const g=ctx.createLinearGradient(90,0,90+w,0);g.addColorStop(0,C.teal);g.addColorStop(1,C.violet);ctx.fillStyle=g;rr(92,318,w,54,27);ctx.fill();ctx.restore();tx('완주',92+(tw('완주',34,F.kr,'800')+44)/2,357,34,F.kr,'#0B0F2A',{al:'center',w:'800',a:q})}
+  const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.orange],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
+    ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.white]];
+  CR.forEach(([l,v,u,c],i)=>{const t0=T6+.3+i*BPER/2;const q=soft(t,t0,.45);if(q<=0)return;const col=i%3,row=Math.floor(i/3);const x=70+col*320,y=430+row*200+(1-q)*20;
+    glass(x,y,300,176,28,{a:q});tx(l,x+150,y+52,24,F.kr,C.dim,{al:'center',w:'500',a:q});const vw=tw(v,62,F.num,'700'),uw=u?tw(u,22,F.kr,'500')+6:0;
+    tx(v,x+150-uw/2,y+128,62,F.num,c,{al:'center',w:'700',a:q});if(u)tx(u,x+150-uw/2+vw/2+6,y+126,22,F.kr,C.dim,{w:'500',a:q})});
+  const mt=lb[4];const q=soft(t,mt,.5);if(q>0){const x=70,y=860+(1-q)*24,w=940,h=520;glass(x,y,w,h,36,{a:q});
+    tx('러닝 메모',x+44,y+70,32,F.kr,C.white,{w:'800',a:q});ctx.fillStyle=`rgba(245,247,255,${.18*q})`;ctx.fillRect(x+44,y+96,w-88,1.5);
+    if(!ML)ML=memoLayout(w-140,6);const lh=ML.px*1.3,top=y+96+(h-96-ML.lines.length*lh)/2+ML.px*.9;
+    ML.lines.forEach((ln,i)=>softTx(t,mt+.3+BPER/2*i,ln,540,top+i*lh,ML.px,F.pen,C.white,{al:'center',d:.5}))}
+  softTx(t,T6+1,S.dateLong,540,1470,28,F.kr,C.dim,{al:'center',w:'300'})}
+
+// ---------- timeline (soft cross-dissolves on the downbeats; a bloom on the drop)
+const SCENES=[[0,sceneIntro],[T1,sceneCapture],[T2,sceneSplits],[T3,sceneWave],[T4,sceneZones],[T5,sceneFinal],[T6,sceneLoop]];
+const BUF=document.createElement('canvas');BUF.width=W;BUF.height=H;
+function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  let k=0;SCENES.forEach(([s],i)=>{if(t>=s)k=i});const s0=SCENES[k][0];const tr=k>0?P(t,s0,s0+.35):1;
+  if(tr<1){SCENES[k-1][1](t);const b=BUF.getContext('2d');b.clearRect(0,0,W,H);b.drawImage(cv,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);SCENES[k][1](t);
+    ctx.save();ctx.globalAlpha=1-eio3(tr);ctx.filter=`blur(${eio3(tr)*14}px)`;ctx.drawImage(BUF,0,0);ctx.restore()}
+  else SCENES[k][1](t);
+  const bl=t>=T1?Math.exp(-(t-T1)/.35):0;if(bl>.01){ctx.save();ctx.globalCompositeOperation='lighter';const g=ctx.createRadialGradient(540,900,0,540,900,1100);g.addColorStop(0,`rgba(200,180,255,${.5*bl})`);g.addColorStop(1,'rgba(200,180,255,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore()}
+  const fi=1-P(t,0,.6);if(fi>0){ctx.fillStyle=`rgba(0,0,0,${fi})`;ctx.fillRect(0,0,W,H)}}
+window.render=render;window.DUR=DUR;
+(async()=>{buildSky();await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
+  const fams=[[F.num,'500'],[F.num,'600'],[F.num,'700'],[F.kr,'300'],[F.kr,'500'],[F.kr,'800'],[F.pen,'']];
+  await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;window.READY=true;
+  const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}})();
+</script></body></html>
