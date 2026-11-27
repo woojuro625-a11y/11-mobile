@@ -1,0 +1,265 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script src="data.js"></script>
+<script src="beat.js"></script>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+const W=1080,H=1920,DUR=30;
+// ---------- per-run text (title / memo are not in the FIT file)
+const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
+  review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',   // keep the memo's own line breaks (\n)
+  photos:['img/ht1.png','img/ht2.png'],photoCaps:['11월 26일 밤','오후 7시 24분'],issue:'NO.1126'};
+// ---------- look: street zine (cut paper, tape, stamps, riso ink)
+const C={paper:'#EFE9DD',paper2:'#F7F3EA',ink:'#141414',ink2:'rgba(20,20,20,.62)',ink3:'rgba(20,20,20,.14)',pink:'#FF3D7F',blue:'#2F5BFF',yel:'#FFD23F',kraft:'#D9C7A3',tape:'rgba(236,222,170,.82)',red:'#E0322E',
+  green:'#16A35A',orange:'#F26A1B'};
+const ZT=['#6B7480','#7D8792','#1F86D6','#16A35A','#D9860B','#D93A37'];      // zone colours (존 미만 1 2 3 4 5) on paper
+const hrCol=h=>ZT[DATA.zones.filter(b=>h>=b).length];
+const F={kd:'Black Han Sans',num:'Anton',kr:'Noto Sans KR',mono:'Space Mono',pen:'Nanum Pen Script'};
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+// ---------- utils
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo3=t=>1-Math.pow(1-t,3),eio3=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const eoBack=(t,s=1.7)=>1+(s+1)*Math.pow(t-1,3)+s*Math.pow(t-1,2);
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const mmss=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+const pace=s=>{s=Math.round(s);return `${Math.floor(s/60)}'${String(s%60).padStart(2,'0')}"`};
+const dsec=s=>{s=Math.round(s);return s>=60?`${Math.floor(s/60)}분 ${s%60}초`:`${s}초`};
+function tx(s,x,y,px,fam,col,{w='',al='left',bl='alphabetic',a=1,ls=0,maxW=0}={}){
+  ctx.save();ctx.globalAlpha*=a;ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.textAlign=al;ctx.textBaseline=bl;ctx.letterSpacing=ls+'px';ctx.fillStyle=col;
+  const m=ctx.measureText(s).width;ctx.translate(x,y);if(maxW&&m>maxW)ctx.scale(maxW/m,1);ctx.fillText(s,0,0);ctx.restore()}
+function tw(s,px,fam,w='',ls=0){ctx.save();ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.letterSpacing=ls+'px';const m=ctx.measureText(s).width;ctx.restore();return m}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+
+// ---------- beat grid of the edited song (music30.wav): 112 BPM, a bar starts on the kick, snare on 2 and 4
+const BT=BEATS.map(b=>b[0]),DB=BEATS.filter(b=>b[1]).map(b=>b[0]);
+const BPER=(()=>{const d=BT.slice(1).map((b,i)=>b-BT[i]).sort((a,b)=>a-b);return d[Math.floor(d.length/2)]})();
+const lastOf=(arr,t)=>{let r=-1e9;for(const x of arr){if(x<=t)r=x;else break}return r};
+const beatP=(t,k=.12)=>{const b=lastOf(BT,t);return t-b<2?Math.exp(-(t-b)/k):0};
+const downP=(t,k=.1)=>{const b=lastOf(DB,t);return t-b<2?Math.exp(-(t-b)/k):0};
+const nearDB=x=>DB.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a,DB[0]);
+// scene starts on bar lines: pickup + 3 bars opening  2 bars each for splits / pace / zones  10 s loop
+const T1=nearDB(3.2),T2=nearDB(7.4),T3=nearDB(11.65),TJ=nearDB(13.8),T4=nearDB(15.9),T5=nearDB(20.1);
+const beatsFrom=(t0,n)=>{const i=BT.findIndex(b=>b>=t0-.02);return BT.slice(i,i+n)};
+const boil=(seed,t,fps=8)=>rnd(seed*7.31+Math.floor(t*fps))-.5;          // stop-motion jitter
+
+// ---------- images
+const IMG={};['garmin','front','wave','point','ht1','ht2'].forEach(n=>{const im=new Image();im.src=`img/${n}.png`;IMG[n]=im});
+function drawImg(n,cx,by,h,{rot=0,sx=1,alpha=1}={}){const im=IMG[n];const w=im.width*h/im.height;
+  ctx.save();ctx.globalAlpha*=alpha;ctx.translate(cx,by);ctx.rotate(rot);ctx.scale(sx,1);ctx.drawImage(im,-w/2,-h,w,h);ctx.restore()}
+
+// ---------- data
+const S=DATA.session,TOTD=S.dist,TT=S.time;
+const LAPS=DATA.laps.map(l=>l[1]/(l[0]/1000)),LAPD=DATA.laps.map(l=>l[0]),NL=LAPS.length;
+const LAPR=LAPS.map(s=>Math.round(s));
+const FAST=LAPR.indexOf(Math.min(...LAPR)),SLOW=LAPR.indexOf(Math.max(...LAPR));
+const lapLabel=i=>LAPD[i]>=990?`${i+1}km`:`${(LAPD.slice(0,i+1).reduce((a,b)=>a+b,0)/1000).toFixed(2)}km`;
+const MAXP=(DATA.maxPace&&DATA.maxPace.sec)||Math.min(...LAPS),MAXD=(DATA.maxPace&&DATA.maxPace.dist)||TOTD;
+const PSER=DATA.paceSeries||[];const PSORT=PSER.map(x=>x[1]).sort((a,b)=>a-b);const P98=PSORT.length?PSORT[Math.floor(PSORT.length*.98)]:Math.max(...LAPS);
+const PLO=Math.floor((Math.min(MAXP,PSORT[0]||MAXP,...LAPS)-8)/10)*10,PHI=Math.ceil((Math.max(P98,...LAPS)+10)/10)*10;
+const AVGP=TT/(TOTD/1000);
+const SPLIT_LINE=(()=>{const sp=Math.max(...LAPR)-Math.min(...LAPR);const last=LAPR[NL-1],first=LAPR[0];
+  if(sp<=20)return'흔들림 없이 같은 리듬으로';if(last===Math.min(...LAPR)&&first>=Math.max(...LAPR)-5)return'갈수록 빨라지고 마지막은 스퍼트';
+  if(last===Math.min(...LAPR))return'마지막 1km는 스퍼트';return'구간마다 리듬을 바꿔 가며'})();
+const ZS=DATA.zoneSec,ZTOT=ZS.reduce((a,b)=>a+b,0),ZMAX=Math.max(...ZS);const ZTOP=ZS.slice(1).indexOf(Math.max(...ZS.slice(1)))+1;
+const ZONE_LINE=`가장 오래 머문 구간은 ${ZTOP}존 ${Math.round(ZS[ZTOP]/ZTOT*100)}%`;
+const zRange=i=>i===0?`${DATA.zones[0]-1} 이하`:i<5?`${DATA.zones[i-1]}~${DATA.zones[i]-1}`:`${DATA.zones[4]} 이상`;
+const BRK=DATA.breaks||[];
+const BREAK_LINE=BRK.length?`중간에 ${BRK.length}번 멈춤 ${dsec(BRK.reduce((a,b)=>a+b.dur,0))}`:'중간 멈춤 없이 연속 달리기';
+const MEMO=RUN.review.split('\n').map(s=>s.trim()).filter(Boolean);
+const SK=Math.min(NL-1,Math.floor(MAXD/1000));
+const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
+
+// ---------- paper, cut scraps, tape, stamps
+const PAPER=document.createElement('canvas');PAPER.width=W;PAPER.height=H;
+function buildPaper(){const g=PAPER.getContext('2d');g.fillStyle=C.paper;g.fillRect(0,0,W,H);
+  for(let i=0;i<26000;i++){const x=rnd(i*1.7)*W,y=rnd(i*2.9+5)*H;g.fillStyle=rnd(i*3.3)>.5?'rgba(120,100,70,.05)':'rgba(255,255,255,.18)';g.fillRect(x,y,1.5,1.5)}
+  g.strokeStyle='rgba(140,120,90,.07)';g.lineWidth=1;for(let i=0;i<260;i++){const x=rnd(i*4.1)*W,y=rnd(i*5.3)*H,a=rnd(i*6.7)*6.28,l=10+rnd(i)*40;g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke()}
+  const v=g.createRadialGradient(540,960,400,540,960,1250);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(80,60,30,.22)');g.fillStyle=v;g.fillRect(0,0,W,H)}
+function bg(t){const sh=downP(t)*4;ctx.drawImage(PAPER,0,0);return sh}
+function tornPath(x,y,w,h,seed,j=3){const pts=[];const step=16;
+  for(let i=0;i<=w;i+=step)pts.push([x+i,y+(rnd(seed+i*.37)-.5)*j*2]);
+  for(let i=0;i<=h;i+=step)pts.push([x+w+(rnd(seed+i*.53+9)-.5)*j*2,y+i]);
+  for(let i=w;i>=0;i-=step)pts.push([x+i,y+h+(rnd(seed+i*.71+19)-.5)*j*2]);
+  for(let i=h;i>=0;i-=step)pts.push([x+(rnd(seed+i*.91+29)-.5)*j*2,y+i]);
+  ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath()}
+function scrap(x,y,w,h,col,seed,{shadow=true,j=3}={}){ctx.save();if(shadow){ctx.shadowColor='rgba(40,30,20,.28)';ctx.shadowBlur=10;ctx.shadowOffsetX=4;ctx.shadowOffsetY=6}
+  tornPath(x,y,w,h,seed,j);ctx.fillStyle=col;ctx.fill();ctx.restore()}
+function tape(cx,cy,w,rot,{col=C.tape,h=44}={}){ctx.save();ctx.translate(cx,cy);ctx.rotate(rot);ctx.fillStyle=col;ctx.beginPath();
+  const zz=6;ctx.moveTo(-w/2,-h/2);ctx.lineTo(w/2,-h/2);for(let i=0;i<=h;i+=h/6)ctx.lineTo(w/2+(i/(h/6))%2*zz,-h/2+i);ctx.lineTo(-w/2,h/2);for(let i=h;i>=0;i-=h/6)ctx.lineTo(-w/2-(i/(h/6))%2*zz,-h/2+i);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(-w/2,-h/2+4,w,6);ctx.restore()}
+// place something that "slams" in on a beat: hard cut + tiny overshoot, then stop-motion jitter
+function slam(t,t0,seed=1){if(t<t0)return null;const p=P(t,t0,t0+.09);return{s:1+.14*(1-p),r:boil(seed,t)*.012,dx:boil(seed+3,t)*2.5,dy:boil(seed+5,t)*2.5}}
+function withSlam(t,t0,seed,cx,cy,rot,fn){const k=slam(t,t0,seed);if(!k)return;ctx.save();ctx.translate(cx+k.dx,cy+k.dy);ctx.rotate(rot+k.r);ctx.scale(k.s,k.s);fn();ctx.restore()}
+function stamp(t,t0,cx,cy,r,col,top,bottom,rot=-.2,seed=3,above=''){const k=slam(t,t0,seed);if(!k)return;const s=1+.6*(1-P(t,t0,t0+.1));
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(rot);ctx.scale(s,s);ctx.globalAlpha*=.88*clamp(P(t,t0,t0+.05)*2);ctx.strokeStyle=col;ctx.fillStyle=col;
+  ctx.lineWidth=7;ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.stroke();ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,0,r-13,0,7);ctx.stroke();
+  if(above){tx(above,0,-r*.12,r*.34,F.kd,col,{al:'center'});tx(top,0,r*.42,r*.48,F.kd,col,{al:'center'})}else tx(top,0,r*.16,r*.62,F.kd,col,{al:'center'});if(bottom)tx(bottom,0,r*.58,r*.2,F.mono,col,{al:'center',w:'700'});
+  for(let i=0;i<30;i++){const a=rnd(seed*9+i)*6.28,d=r*(.78+rnd(seed*5+i*2)*.3);ctx.fillStyle=C.paper;ctx.fillRect(Math.cos(a)*d,Math.sin(a)*d,1.5+rnd(i*3)*3,1.5+rnd(i*7)*2.5)}   // wear only on the rim so the words stay readable
+  ctx.restore()}
+// ransom-note masthead: 오늘의 러닝, every letter a different scrap
+const RANSOM=[['오',C.ink,C.paper2,F.kd],['늘',C.pink,C.ink,F.kd],['의',C.paper2,C.ink,F.kr],['러',C.yel,C.ink,F.kd],['닝',C.blue,C.paper2,F.kd]];
+function masthead(t,t0,y,size=1){const xs=[0,1,2,3.45,4.45].map(i=>i*116*size);const x0=540-(xs[4]+100*size)/2;
+  RANSOM.forEach(([ch,bgc,fg,fam],i)=>{const ti=t0+(i<3?i*BPER/4:BPER+(i-3)*BPER/4);withSlam(t,ti,40+i,x0+xs[i]+50*size,y,(rnd(i*3.1)-.5)*.22,()=>{
+    scrap(-50*size,-58*size,100*size,116*size,bgc,60+i,{j:2.5});tx(ch,0,32*size,86*size,fam,fg,{al:'center',w:fam===F.kr?'900':''})})})}
+
+// ---------- three diagonal cuts between scenes (the song's snare cuts)
+const CUTS=[T1,T2,T3,T4,T5];
+const cutLine=(k,x)=>k<=0?-600:k>=3?H+600:k*H/3-170+340*(x/W);
+function bandPath(k,off){ctx.beginPath();ctx.moveTo(-60+off,cutLine(k,-60));ctx.lineTo(W+60+off,cutLine(k,W+60));ctx.lineTo(W+60+off,cutLine(k+1,W+60));ctx.lineTo(-60+off,cutLine(k+1,-60));ctx.closePath()}
+
+// ---------- scene 1a: masthead + title + halftone photos (0 ~ T1)
+function sceneOpenA(t){bg(t);
+  tx(RUN.issue,90,120,24,F.mono,C.ink2,{w:'700',ls:4,a:t>BT[0]+BPER*1.5?1:0});tx('RUN ZINE',990,120,24,F.mono,C.ink2,{al:'right',w:'700',ls:4,a:t>BT[0]+BPER*1.5?1:0});
+  masthead(t,BT[0],250);
+  const d1=DB[0];
+  // title with a highlighter swipe
+  if(t>=d1){const hw=tw(RUN.title,170,F.kd);const sw=eo3(P(t,d1,d1+.18));ctx.save();ctx.globalCompositeOperation='multiply';ctx.fillStyle='rgba(255,210,63,.9)';
+    ctx.beginPath();ctx.moveTo(540-hw/2-30,500);ctx.lineTo(540-hw/2-30+(hw+60)*sw,488);ctx.lineTo(540-hw/2-30+(hw+60)*sw,590);ctx.lineTo(540-hw/2-30,600);ctx.fill();ctx.restore();
+    withSlam(t,d1,11,540,0,0,()=>tx(RUN.title,0,600,170,F.kd,C.ink,{al:'center'}))}
+  const b=beatsFrom(d1,4);
+  withSlam(t,b[1],12,540,690,-.03,()=>{const w=tw(RUN.memo,40,F.kr,'700')+60;scrap(-w/2,-38,w,76,C.blue,71);tx(RUN.memo,0,14,40,F.kr,'#fff',{al:'center',w:'700'})});
+  withSlam(t,b[2]+BPER/2,13,540,782,.02,()=>{const w=tw(S.dateLong,28,F.mono,'700')+40;tape(0,0,w,0,{h:48});tx(S.dateLong,0,10,28,F.kr,C.ink,{al:'center',w:'700'})});
+  // halftone prints
+  [[0,300,1250,-.07,470],[1,770,1330,.07,430]].forEach(([i,cx,cy,rot,w],k)=>{const im=IMG['ht'+(i+1)];const h=w*1.25;withSlam(t,b[1+k]+BPER/2*(k?1:0)+(k?BPER/2:BPER/2),20+k,cx,cy,rot,()=>{
+    scrap(-w/2-18,-h/2-18,w+36,h+96,C.paper2,80+k,{j:2});ctx.drawImage(im,-w/2,-h/2,w,h);
+    tape(0,-h/2-14,150,(k?.1:-.08));tx(RUN.photoCaps[i]||'',0,h/2+58,46,F.pen,C.ink,{al:'center'})})});
+  // Star Runner sticker on the second print (easter egg)
+  {const t0=(b[3]||T1)+BPER*.5;withSlam(t,t0,30,905,1555,.18,()=>{drawImg('point',0,0,92,{sx:-1})})}}
+
+// ---------- scene 1b: the whole Garmin capture, taped flat (never zoomed or covered); side tags point at it (T1 ~ T2)
+const CAP={w:1080,h:1483};
+function sceneOpenB(t){bg(t);masthead(t,-1,190,.78);
+  const ih=1100,cs=ih/CAP.h,iw=CAP.w*cs,ix=540-iw/2,iy=360;
+  withSlam(t,T1,50,540,iy+ih/2,-.006,()=>{ctx.save();ctx.shadowColor='rgba(40,30,20,.3)';ctx.shadowBlur=18;ctx.shadowOffsetX=5;ctx.shadowOffsetY=8;ctx.fillStyle='#fff';ctx.fillRect(-iw/2-10,-ih/2-10,iw+20,ih+20);ctx.restore();
+    ctx.drawImage(IMG.garmin,-iw/2,-ih/2,iw,ih);tape(-iw/2+40,-ih/2,160,-.6);tape(iw/2-40,-ih/2,160,.6);tape(-iw/2+40,ih/2,160,.6);tape(iw/2-40,ih/2,160,-.6)});
+  const REG=[[0,.405,'지도',C.pink],[.41,.565,'제목',C.blue],[.575,1,'기록',C.yel]];const tb=beatsFrom(T1,8);
+  REG.forEach(([a,b,lab,col],i)=>{const t0=tb[1+i*2];const cy=iy+(a+b)/2*ih;withSlam(t,t0,55+i,70,cy,(i%2?.05:-.05),()=>{
+    scrap(-62,-40,124,80,col,90+i);tx(lab,0,14,38,F.kd,col===C.yel?C.ink:'#fff',{al:'center'});
+    ctx.strokeStyle=C.ink;ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(56,0);ctx.lineTo(ix-70-8,0);ctx.stroke();ctx.beginPath();ctx.moveTo(ix-70-8,0);ctx.lineTo(ix-70-22,-10);ctx.moveTo(ix-70-8,0);ctx.lineTo(ix-70-22,10);ctx.stroke()})})}
+
+// ---------- scene 2: splits as torn paper strips, 1km to the last km top to bottom (T2 ~ T3)
+function sceneSplits(t){bg(t);
+  withSlam(t,T2,60,90,0,-.02,()=>{scrap(-14,170,370,110,C.ink,101);tx('구간 기록',22,252,72,F.kd,C.paper2)});
+  tx(`1km마다 걸린 시간  막대가 길수록 빠름`,90,340,26,F.kr,C.ink2,{w:'700',a:t>T2+BPER?1:0});
+  const lo=Math.min(...LAPS)-25,hi=Math.max(...LAPS)+15;const rows=beatsFrom(T2,2*NL).filter((_,i)=>i%2===0).map((b,i)=>T2+.07+i*BPER/2);
+  const rh=Math.min(118,960/NL);
+  LAPS.forEach((s,k)=>{const y=420+k*rh;const t0=rows[k];if(t<t0)return;const len=lerp(280,620,(hi-s)/(hi-lo))*eo3(P(t,t0,t0+.12));
+    const isF=k===FAST,isS=k===SLOW;const col=isF?C.pink:isS?C.blue:(k%2?C.kraft:'#FFFFFF');const fg=isF||isS?'#fff':C.ink;
+    tx(lapLabel(k),90,y+62,42,F.num,C.ink);
+    ctx.save();ctx.translate(boil(200+k,t)*2,0);scrap(210,y+8,len,rh-26,col,120+k,{j:2.2});tx(pace(s),210+len-22,y+rh/2+14,54,F.num,fg,{al:'right'});ctx.restore()});
+  const sb=beatsFrom(nearDB(T2+2*BPER*2-.01),4);
+  stamp(t,sb[0],930,420+FAST*rh+rh/2-6,84,C.red,'빠름','',-.22,7,'가장');
+  if(SLOW!==FAST)stamp(t,sb[1],930,420+SLOW*rh+rh/2-6,84,C.blue,'느림','',.2,8,'가장');
+  const ft=sb[2];withSlam(t,ft,70,540,1430,0,()=>{tx('평균페이스',-450,0,30,F.kr,C.ink2,{w:'700'});tx(pace(AVGP),-450,76,78,F.num,C.green);
+    tx('빠른 1km와 느린 1km 차이',450,0,30,F.kr,C.ink2,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),450,70,56,F.kd,C.orange,{al:'right'})})}
+
+// ---------- scene 3: pace graph on graph paper  km per half beat  the sprint km lit up from the song's section change (T3 ~ T4)
+const GX0=160,GX1=975,GY0=560,GY1=1120;
+const gx=d=>GX0+d/TOTD*(GX1-GX0),gy=p=>GY0+clamp((p-PLO)/(PHI-PLO))*(GY1-GY0);
+function sceneWave(t){bg(t);
+  withSlam(t,T3,80,90,0,-.02,()=>{scrap(-14,170,470,110,C.ink,131);tx('페이스 그래프',22,252,72,F.kd,C.paper2)});
+  tx(`${(TOTD/1000).toFixed(2)}km 실제 페이스`,90,340,26,F.kr,C.ink2,{w:'700',a:t>T3+BPER?1:0});
+  // graph paper card
+  withSlam(t,T3+.07,81,540,850,.004,()=>{scrap(-460,-450,920,760,'#F9FBFF',141,{j:2});ctx.strokeStyle='rgba(47,91,255,.12)';ctx.lineWidth=1;
+    for(let x=-440;x<440;x+=28){ctx.beginPath();ctx.moveTo(x,-430);ctx.lineTo(x,290);ctx.stroke()}for(let y=-430;y<290;y+=28){ctx.beginPath();ctx.moveTo(-440,y);ctx.lineTo(440,y);ctx.stroke()}
+    tape(-330,-450,170,-.1);tape(330,-450,170,.1)});
+  if(t<T3+.07)return;
+  const WS=[];let c=T3+.15;for(let k=0;k<NL;k++){if(k===SK){c=Math.max(c,TJ);WS.push(c);c+=2*BPER}else{WS.push(c);c+=BPER/2}}
+  const SK0=WS[SK],SK1=SK0+2*BPER;const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
+  const prog=k=>k===SK?Math.pow(P(t,SK0,SK1),1.4):eo3(P(t,WS[k],WS[k]+.2));
+  let dR=0;for(let k=0;k<NL;k++){const q=prog(k);if(q>0)dR=Math.max(dR,lerp(k*1000,kEnd(k),q))}
+  const sp=P(t,SK0,SK0+.12);
+  for(let p=Math.ceil(PLO/60)*60;p<=PHI;p+=60){const y=gy(p);ctx.strokeStyle=C.ink3;ctx.lineWidth=2;ctx.setLineDash([8,8]);ctx.beginPath();ctx.moveTo(GX0,y);ctx.lineTo(GX1,y);ctx.stroke();ctx.setLineDash([]);
+    tx(pace(p),GX0-14,y+8,22,F.mono,C.ink2,{al:'right',w:'700'})}
+  for(let k=0;k<=NL;k++){const x=gx(Math.min(k*1000,TOTD));tx(k===NL?`${(TOTD/1000).toFixed(2)}km`:String(k),x,GY1+40,22,F.mono,C.ink2,{al:k===NL?'right':'center',w:'700'})}
+  const sx0=gx(SK*1000),sx1=gx(kEnd(SK));
+  if(sp>0){ctx.save();ctx.globalCompositeOperation='multiply';ctx.fillStyle=`rgba(255,61,127,${.32*sp})`;ctx.fillRect(sx0,GY0-80,sx1-sx0,GY1-GY0+80);ctx.restore()}
+  LAPS.forEach((s,k)=>{if(t<WS[k])return;const x0=gx(k*1000),x1=gx(kEnd(k));const isK=k===SK&&sp>0;const col=isK?C.pink:k===FAST?C.orange:k===SLOW?C.blue:C.ink;
+    tx(pace(s),(x0+x1)/2,GY0-36,isK?34:28,F.num,col,{al:'center',a:isK?1:1-.5*sp});
+    ctx.save();ctx.globalAlpha*=.75*(isK?1:1-.5*sp);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(x0+4,gy(s));ctx.lineTo(x1-4,gy(s));ctx.stroke();ctx.restore()});
+  const pts=PSER.filter(q=>q[0]<=dR).map(q=>[gx(q[0]),gy(q[1]),q[0]]);
+  const line=(arr,col,wd,al)=>{if(arr.length<2)return;ctx.save();ctx.globalAlpha*=al;ctx.strokeStyle=col;ctx.lineWidth=wd;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();arr.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore()};
+  line(pts,C.ink,5,1-.6*sp);if(sp>0)line(pts.filter(q=>q[2]>=SK*1000-30&&q[2]<=kEnd(SK)),C.pink,7,1);
+  // fastest moment: a punched dot, then a call-out sticker that stays to the end of the scene
+  if(t>=SK1){const x=gx(MAXD),y=gy(MAXP);const k=slam(t,SK1,90);ctx.fillStyle=C.pink;ctx.beginPath();ctx.arc(x,y,11*k.s,0,7);ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,20+6*beatP(t),0,7);ctx.stroke();
+    const ct=SK1+BPER/2;withSlam(t,ct,91,450,690,-.03,()=>{ctx.strokeStyle=C.ink;ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(270,-10);ctx.quadraticCurveTo(x-300,-140,x-450-20,y-690+6);ctx.stroke();
+      scrap(-280,-95,560,190,C.pink,151);tx(SPRINT_T,-250,-38,36,F.kd,'#fff');
+      tx('순간 최고',-250,52,28,F.kr,'#fff',{w:'700'});tx(pace(MAXP),-110,64,86,F.num,C.ink);
+      tx(`${lapLabel(SK)} 구간`,250,10,26,F.kr,'#fff',{al:'right',w:'700'});tx(pace(LAPS[SK]),250,64,48,F.num,'#fff',{al:'right'})})}
+  // readout
+  const rb=beatsFrom(T3+2*BPER-.02,3);
+  [['평균페이스',pace(AVGP),C.green],['최고 페이스',pace(MAXP),C.pink],['총 거리',(TOTD/1000).toFixed(2)+'km',C.orange]].forEach(([l,v,c],i)=>withSlam(t,rb[i],95+i,90+i*310,1300,0,()=>{tx(l,0,0,28,F.kr,C.ink2,{w:'700'});tx(v,0,82,74,F.num,c)}));
+  if(t>rb[2]+BPER)tx(SPLIT_LINE,540,1530,64,F.pen,C.ink,{al:'center'})}
+
+// ---------- scene 4: heart rate zones as torn strips, 5존 to 존 미만 (Garmin order) (T4 ~ T5)
+function sceneZones(t){bg(t);
+  withSlam(t,T4,100,90,0,-.02,()=>{scrap(-14,170,470,110,C.ink,161);tx('심박존별 시간',22,252,72,F.kd,C.paper2)});
+  tx('가민 심박존 기준',90,340,26,F.kr,C.ink2,{w:'700',a:t>T4+BPER?1:0});
+  const ZB=beatsFrom(T4,8).map((b,i)=>T4+.07+i*BPER/2);
+  [5,4,3,2,1,0].forEach((z,r)=>{const y=430+r*140;const t0=ZB[r];if(t<t0)return;const sec=ZS[z];const col=ZT[z];
+    withSlam(t,t0,110+r,0,0,0,()=>{scrap(90,y,140,70,col,170+r,{j:2});tx(z?`${z}존`:'존 미만',160,y+50,z?44:30,F.kd,'#fff',{al:'center'});
+      tx(zRange(z),160,y+102,22,F.mono,C.ink2,{al:'center',w:'700'})});
+    const len=sec>0?Math.max(14,560*sec/ZMAX)*eo3(P(t,t0,t0+.15)):0;if(len>0)scrap(260,y+6,len,58,col,180+r,{j:2,shadow:false});
+    const tx0=260+Math.max(len,0)+18;tx(mmss(sec),tx0,y+56,52,F.num,sec>0?C.ink:'rgba(20,20,20,.35)');
+    tx(`${Math.round(sec/ZTOT*100)}%`,tx0+tw(mmss(sec),52,F.num)+14,y+54,28,F.mono,col,{w:'700'})});
+  const hb=beatsFrom(nearDB(T4+2*BPER*2-.01),3);
+  [['평균심박수',S.avgHR],['최대심박수',S.maxHR]].forEach(([l,v],k)=>withSlam(t,hb[k],120+k,k?990:90,1340,0,()=>{const al=k?'right':'left';
+    tx(l,0,0,30,F.kr,C.ink2,{al,w:'700'});const vw=tw(String(v),96,F.num),uw=tw('bpm',30,F.kr,'700');
+    tx(String(v),k?-uw-10:0,100,96,F.num,hrCol(v),{al});tx('bpm',k?0:vw+10,100,30,F.kr,C.ink2,{al,w:'700'})}));
+  if(t>hb[2]){tx(ZONE_LINE,540,1580,60,F.pen,C.ink,{al:'center'});tx(BREAK_LINE,540,1640,26,F.kr,BRK.length?C.orange:C.ink2,{al:'center',w:'700'})}}
+
+// ---------- scene 5: back cover loop  stamp  6 stat cards  memo on a torn notebook page (line breaks kept) (T5 ~ 30)
+function memoLayout(maxW,maxLines){for(let px=52;px>=40;px-=2){if(MEMO.length<=maxLines&&MEMO.every(l=>tw(l,px,F.pen)<=maxW))return{px,lines:MEMO}}
+  for(let px=52;px>30;px-=2){const lines=[];
+    for(const ln of MEMO){if(tw(ln,px,F.pen)<=maxW){lines.push(ln);continue}let cur='';for(const w of ln.split(' ')){const tt=cur?cur+' '+w:w;if(tw(tt,px,F.pen)>maxW&&cur){lines.push(cur);cur=w}else cur=tt}if(cur)lines.push(cur)}
+    if(lines.length<=maxLines)return{px,lines}}return{px:30,lines:MEMO.slice(0,maxLines)}}
+let ML=null;
+function sceneLoop(t){bg(t);const lb=beatsFrom(T5,16);
+  tx(RUN.issue,90,120,24,F.mono,C.ink2,{w:'700',ls:4});tx('RUN ZINE',990,120,24,F.mono,C.ink2,{al:'right',w:'700',ls:4});
+  masthead(t,T5,220,.78);
+  withSlam(t,lb[1],200,90,0,-.015,()=>tx(RUN.title,0,440,150,F.kd,C.ink));
+  stamp(t,lb[2],880,395,96,C.red,'완주',`${(TOTD/1000).toFixed(2)}KM`,-.22,11);
+  // stat cards
+  const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.orange],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
+    ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.ink]];
+  CR.forEach(([l,v,u,c],i)=>{const col=i%3,row=Math.floor(i/3);const cx=90+col*310+140,cy=560+row*195;const t0=lb[2]+BPER/2*(i+1);
+    withSlam(t,t0,210+i,cx,cy,(rnd(i*5.1)-.5)*.05,()=>{scrap(-140,-80,280,165,i%2?C.paper2:'#FFFFFF',220+i,{j:2});tape(0,-80,90,(rnd(i)-.5)*.3,{h:34});
+      tx(l,0,-26,26,F.kr,C.ink2,{al:'center',w:'700'});const vw=tw(v,66,F.num),uw=u?tw(u,24,F.kr,'700')+6:0;tx(v,-uw/2,52,66,F.num,c,{al:'center'});if(u)tx(u,-uw/2+vw/2+6,50,24,F.kr,C.ink2,{w:'700'})})});
+  // notebook page with the memo, centred on the ruled lines
+  const pt=lb[6];withSlam(t,pt,240,540,1250,.008,()=>{const pw=900,ph=520;scrap(-pw/2,-ph/2,pw,ph,'#FBFAF5',241,{j:3.5});
+    ctx.strokeStyle='rgba(47,91,255,.22)';ctx.lineWidth=2;for(let y=-ph/2+110;y<ph/2-20;y+=64){ctx.beginPath();ctx.moveTo(-pw/2+10,y);ctx.lineTo(pw/2-10,y);ctx.stroke()}
+    ctx.strokeStyle='rgba(224,50,46,.35)';ctx.beginPath();ctx.moveTo(-pw/2+90,-ph/2+8);ctx.lineTo(-pw/2+90,ph/2-8);ctx.stroke();
+    tx('러닝 메모',-pw/2+110,-ph/2+70,34,F.kd,C.ink);tape(pw/2-120,-ph/2,180,.12);
+    if(!ML)ML=memoLayout(pw-170,6);const top=-ph/2+110+64*Math.max(0,Math.floor((6-ML.lines.length)/2));
+    ML.lines.forEach((ln,i)=>{const t0=pt+BPER/2*(i+1);if(t<t0)return;tx(ln,30,top+64*i+54,ML.px,F.pen,C.ink,{al:'center'})})});
+  // Star Runner sticker peeking from the page corner (waves now and then)
+  {const t0=lb[6]+BPER*3;const e=t-t0;if(e>=0){const wv=(e%4)>2.6&&(e%4)<3.6;withSlam(t,t0,250,950,1530,.1,()=>drawImg(wv?'wave':'front',0,0,86))}}
+  // marquee tape
+  const m=`${RUN.title}  ${(TOTD/1000).toFixed(2)}KM  ${mmss(TT)}  ${pace(AVGP)}  ${S.avgHR}BPM  `;const mw=tw(m,30,F.kr,'700');
+  if(t>lb[3]){ctx.save();ctx.translate(540,1600);ctx.rotate(-.03);ctx.fillStyle=C.yel;ctx.fillRect(-620,-30,1240,60);const off=((t-T5)*90)%mw;
+    for(let x=-620-off;x<640;x+=mw)tx(m,x,11,30,F.kr,C.ink,{w:'700'});ctx.restore()}}
+
+// ---------- timeline
+const SCENES=[[0,sceneOpenA],[T1,sceneOpenB],[T2,sceneSplits],[T3,sceneWave],[T4,sceneZones],[T5,sceneLoop]];
+function sceneAt(t){let k=0;SCENES.forEach(([s],i)=>{if(t>=s)k=i});return k}
+function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';
+  const sh=downP(t)*3;ctx.translate((rnd(Math.floor(t*30))-.5)*sh,(rnd(Math.floor(t*30)+7)-.5)*sh);
+  const k=sceneAt(t);const s0=SCENES[k][0];const cutDur=BPER*.75;
+  if(k>0&&t<s0+cutDur){SCENES[k-1][1](t);                                     // three cuts: bands of the new page land on 16th notes
+    for(let j=0;j<3;j++){const t0=s0+j*BPER/4;const p=eo3(P(t,t0,t0+.07));if(p<=0)continue;const off=(1-p)*(j%2?-1:1)*W*.9;
+      ctx.save();bandPath(j,off);ctx.clip();ctx.translate(off,0);SCENES[k][1](t);ctx.restore();
+      ctx.save();ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=3;ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(-60+off,cutLine(j,-60));ctx.lineTo(W+60+off,cutLine(j,W+60));if(j<2){ctx.moveTo(-60+off,cutLine(j+1,-60));ctx.lineTo(W+60+off,cutLine(j+1,W+60))}ctx.stroke();ctx.restore()}}
+  else SCENES[k][1](t);
+  const fi=1-P(t,0,.15);if(fi>0){ctx.fillStyle=`rgba(239,233,221,${fi})`;ctx.fillRect(-10,-10,W+20,H+20)}}
+window.render=render;window.DUR=DUR;
+(async()=>{buildPaper();await Promise.all(Object.values(IMG).map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
+  const fams=[[F.kd,''],[F.num,''],[F.kr,'700'],[F.kr,'900'],[F.mono,'700'],[F.pen,'']];
+  await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;window.READY=true;
+  const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}})();
+</script></body></html>
