@@ -7,7 +7,7 @@
 <script src="drums.js"></script>
 <script src="bass.js"></script>
 <script src="memo_emphasis.js"></script>
-<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script><script src="dancer3d.js"></script>
+<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script><script src="rider3d.js"></script>
 </head><body>
 <canvas id="c" width="1080" height="1920"></canvas>
 <script>
@@ -17,7 +17,7 @@ const RUN={title:'회복조깅',memo:'10km 뛰려다가 8km까지만',
   review:'10km 뛰려다가 8km까지만\n아직도 근육통이 심하다\n따뜻하게 입어서 그런지 다리가 힘들어서 그런지\n심박수가 급상승 해버렸다\n내일은 하루 더 쉬고 토요일 오전에 뛰어야지',   // keep the memo's own line breaks (\n)
   reviewMarks:'[[10km]] 뛰려다가 [[8km]]까지만\n아직도 [[근육통|body]]이 심하다\n따뜻하게 입어서 그런지 [[다리가 힘들어서|body]] 그런지\n[[심박수가 급상승|body]] 해버렸다\n내일은 [[하루 더 쉬고|plan]] [[토요일 오전|plan]]에 뛰어야지',
   photos:['img/photo1.jpg','img/photo2.jpg'],photoCaps:['11월 26일 밤','오후 7시 24분']};
-// ---------- look: a night tunnel run (black tunnel, sodium-amber lamps, teal lane lines, white light at the exit)
+// ---------- look: a night highway seen from a speeding motorcycle (navy sky, city glow on the horizon, sodium street lamps rushing past, teal accents)
 const C={bg:'#07090D',panel:'rgba(10,13,19,.86)',white:'#F4F1EA',dim:'rgba(244,241,234,.6)',faint:'rgba(244,241,234,.13)',amber:'#FFA43A',teal:'#3DD6C8',red:'#FF4B3E',green:'#35C46A',blue:'#5AA9FF'};
 const ZC=['#9AA3AD','#C9D0D8','#4AB3F4','#3DDC84','#F5A623','#F0524F'];        // zone colours (존 미만 1 2 3 4 5) on dark
 const hrCol=h=>ZC[DATA.zones.filter(b=>h>=b).length];
@@ -50,7 +50,7 @@ const OFF=BT.map(b=>b+BPER/2);const hatP=(t,k=.06)=>{const b=lastOf(OFF,t);retur
 const fr=t=>Math.max(0,Math.min(1799,Math.floor(t*60)));const bassAt=t=>BASS[fr(t)],loudAt=t=>LOUD[fr(t)];
 const beatsFrom=(t0,n)=>{const i=BT.findIndex(b=>b>=t0-.02);return BT.slice(i,i+n)};
 const T1=bar(2),T2=bar(4),T3=bar(6),T4=bar(9),T5=bar(11),HIT=bar(13),RING=bar(14);
-// tunnel speed follows the song: slow intro, rolling after the bass, speeding up through the riser, full speed on the drop, easing in the break, stopping in the ring-out
+// riding speed follows the song: slow intro, rolling after the bass, speeding up through the riser, full speed on the drop, easing in the break, stopping in the ring-out
 function speed(t){if(t<T1)return .5;if(t<bar(3))return .9;if(t<T3)return lerp(.9,2.4,eio3(P(t,bar(3),T3)));if(t<T4)return 3.2;if(t<bar(10))return 1.1;if(t<HIT)return 2.8;
   return 2.8*Math.pow(1-P(t,HIT,RING+1.2),2)}
 const DIST=new Float32Array(1801);for(let i=1;i<=1800;i++)DIST[i]=DIST[i-1]+speed((i-.5)/60)/60;
@@ -81,51 +81,74 @@ const BREAK_LINE=BRK.length?`중간에 ${BRK.length}번 멈춤 ${dsec(BRK.reduce
 const SK=Math.min(NL-1,Math.floor(MAXD/1000));
 const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 1km 스퍼트':SK===NL-1?'마지막 1km 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
 
-// ---------- the tunnel: one-point perspective, arch rings and sodium lamps rushing past the camera, lane dashes on the floor
-const VP={x:540,y:900};const RING_D=1.4,ZN=.55,ZF=26;
-function tunnel(t,{dim=0}={}){ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
-  const d=distAt(t),k=kickP(t,.11)*Math.min(1,loudAt(t)*3+.15),hh=hatP(t)*Math.min(1,loudAt(t)*3);
-  const ex=ctx.createRadialGradient(VP.x,VP.y,0,VP.x,VP.y,760);const eg=.8+.2*bassAt(t);ex.addColorStop(0,`rgba(255,236,205,${eg})`);ex.addColorStop(.1,`rgba(255,190,120,${eg*.45})`);ex.addColorStop(.4,`rgba(255,140,50,${eg*.1})`);ex.addColorStop(1,'rgba(255,164,58,0)');
-  ctx.fillStyle=ex;ctx.fillRect(0,0,W,H);
-  const fl=ctx.createLinearGradient(0,VP.y,0,H);fl.addColorStop(0,'rgba(255,164,58,.10)');fl.addColorStop(1,'rgba(255,164,58,0)');ctx.fillStyle=fl;ctx.beginPath();ctx.moveTo(VP.x,VP.y);ctx.lineTo(VP.x-620*4,VP.y+760*4);ctx.lineTo(VP.x+620*4,VP.y+760*4);ctx.fill();
-  ctx.strokeStyle=`rgba(255,180,90,${.22+.25*k})`;ctx.lineWidth=3;[-1,1].forEach(sgn=>{ctx.beginPath();ctx.moveTo(VP.x,VP.y);ctx.lineTo(VP.x+sgn*620*.9*4,VP.y-700*.62*4);ctx.stroke()});
-  const sx=z=>620/z,syT=z=>-700/z,syB=z=>760/z;                                            // half width, ceiling, floor at depth z
-  const arch=(z)=>{const s=sx(z),top=VP.y+syT(z),bot=VP.y+syB(z),r=s*.75;ctx.beginPath();ctx.moveTo(VP.x-s,bot);ctx.lineTo(VP.x-s,top+r);ctx.quadraticCurveTo(VP.x-s,top,VP.x-s+r,top);ctx.lineTo(VP.x+s-r,top);ctx.quadraticCurveTo(VP.x+s,top,VP.x+s,top+r);ctx.lineTo(VP.x+s,bot)};
-  // walls: guide lines from the exit to the corners
-  ctx.strokeStyle='rgba(255,164,58,.10)';ctx.lineWidth=2;[[-1,-.55],[1,-.55],[-1,.0],[1,0]].forEach(([sgn,h])=>{ctx.beginPath();ctx.moveTo(VP.x,VP.y);ctx.lineTo(VP.x+sgn*620*4,VP.y+h*700*4);ctx.stroke()});
-  ctx.strokeStyle='rgba(61,214,200,.35)';ctx.lineWidth=3;[-1,1].forEach(sgn=>{ctx.beginPath();ctx.moveTo(VP.x,VP.y);ctx.lineTo(VP.x+sgn*380*4,VP.y+760*4);ctx.stroke()});
-  const off=d%RING_D;
-  for(let i=Math.ceil(ZF/RING_D);i>=0;i--){const z=i*RING_D-off+ZN;if(z<ZN*.8||z>ZF)continue;const fog=Math.pow(1-z/ZF,1.6);
-    arch(z);ctx.strokeStyle=`rgba(244,241,234,${.17*fog})`;ctx.lineWidth=Math.max(1,6/z);ctx.stroke();
-    const lx=sx(z)*.9,ly=VP.y+syT(z)*.62,r=Math.max(2,34/z);                                          // lamps on both upper walls
-    [-1,1].forEach(sgn=>{const x=VP.x+sgn*lx;const g=ctx.createRadialGradient(x,ly,0,x,ly,r*4.5);const a=fog*(.5+.5*k);
-      g.addColorStop(0,`rgba(255,214,150,${a})`);g.addColorStop(.25,`rgba(255,164,58,${a*.55})`);g.addColorStop(1,'rgba(255,164,58,0)');ctx.fillStyle=g;ctx.fillRect(x-r*4.5,ly-r*4.5,r*9,r*9);
-      ctx.fillStyle=`rgba(255,240,215,${fog})`;ctx.beginPath();ctx.ellipse(x,ly,r*1.4,r*.55,0,0,7);ctx.fill()})}
-  // lane dashes (they flick on the offbeat hats)
-  const DD=1.4,doff=d%DD;for(let i=Math.ceil(ZF/DD);i>=0;i--){const z0=i*DD-doff+ZN,z1=z0+DD*.45;if(z0<ZN*.8||z0>ZF)continue;const fog=Math.pow(1-z0/ZF,1.3);
-    const y0=VP.y+syB(z0),y1=VP.y+syB(z1);ctx.fillStyle=`rgba(244,241,234,${(.5+.4*hh)*fog})`;ctx.beginPath();ctx.moveTo(VP.x-14/z0,y0);ctx.lineTo(VP.x+14/z0,y0);ctx.lineTo(VP.x+14/z1,y1);ctx.lineTo(VP.x-14/z1,y1);ctx.fill()}
-  // speed streaks on the drop
-  const sp=speed(t);if(sp>2){const n=26;for(let i=0;i<n;i++){const a=rnd(i)*Math.PI*2,ph=(d*1.7+rnd(i+9))%1;const r0=180+ph*900,r1=r0+60+ph*260;ctx.strokeStyle=`rgba(255,214,150,${.18*(sp-2)*ph})`;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(VP.x+Math.cos(a)*r0,VP.y+Math.sin(a)*r0*.9);ctx.lineTo(VP.x+Math.cos(a)*r1,VP.y+Math.sin(a)*r1*.9);ctx.stroke()}}
-  if(dim>0){ctx.fillStyle=`rgba(5,7,10,${dim})`;ctx.fillRect(0,0,W,H)}}
+// ---------- the highway: one-point perspective with a gently bending road; street lamps and lane dashes rush past (toward the camera in the rider's view,
+// away from it when the camera rides backwards in front of Star Runner); city skyline on the horizon; speed streaks on the drop
+const VP={x:540,y:880};const ZN=.6,ZF=40,FOC=520;
+const bend=t=>.55*Math.sin(2*Math.PI*t/11)+.25*Math.sin(2*Math.PI*t/4.7+1);
+const cxz=(t,z)=>VP.x+bend(t)*340*Math.pow(1-ZN/z,2);
+const proj=(t,X,Y,z)=>[cxz(t,z)+X*FOC/z,VP.y-Y*FOC/z];
+const SKY=document.createElement('canvas');SKY.width=1600;SKY.height=360;
+function buildSky(){const g=SKY.getContext('2d');let x=0,i=0;while(x<1600){const w=40+rnd(i)*90,h=60+rnd(i+7)*260;g.fillStyle=`rgb(${16+i%3*3},${17+i%3*3},${30+i%3*5})`;g.fillRect(x,360-h,w,h);
+  for(let wy=360-h+10;wy<350;wy+=16)for(let wx=x+6;wx<x+w-8;wx+=12)if(rnd(wx*3.1+wy*7.7)>.62){g.fillStyle=rnd(wx+wy)>.3?'rgba(255,205,130,.75)':'rgba(140,210,255,.6)';g.fillRect(wx,wy,5,7)}
+  x+=w+2;i++}}
+function road(t,{dim=0,dir=1}={}){const d=distAt(t)*2.2,k=kickP(t,.11)*Math.min(1,loudAt(t)*3+.15),hh=hatP(t)*Math.min(1,loudAt(t)*3);
+  const sky=ctx.createLinearGradient(0,0,0,VP.y);sky.addColorStop(0,'#05070F');sky.addColorStop(.7,'#141433');sky.addColorStop(1,'#3A2440');ctx.fillStyle=sky;ctx.fillRect(0,0,W,VP.y+2);
+  const sx=-260-bend(t)*120;ctx.drawImage(SKY,sx,VP.y-350);
+  const glow=ctx.createRadialGradient(VP.x+bend(t)*340,VP.y,0,VP.x+bend(t)*340,VP.y,700);glow.addColorStop(0,`rgba(255,150,90,${.35+.15*bassAt(t)})`);glow.addColorStop(1,'rgba(255,150,90,0)');ctx.fillStyle=glow;ctx.fillRect(0,VP.y-500,W,700);
+  ctx.fillStyle='#0A0B0F';ctx.fillRect(0,VP.y,W,H-VP.y);
+  const L=[],R=[];for(let z=ZF;z>=ZN*.9;z*=.94){L.push(proj(t,-2.4,-1.1,z));R.push(proj(t,2.4,-1.1,z))}
+  ctx.fillStyle='#17191F';ctx.beginPath();L.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));for(let i=R.length-1;i>=0;i--)ctx.lineTo(R[i][0],R[i][1]);ctx.fill();
+  [L,R].forEach(E=>{ctx.strokeStyle='rgba(244,241,234,.55)';ctx.lineWidth=3;ctx.beginPath();E.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke()});
+  const off=x=>dir>0?x:-x;
+  const DD=3,doff=((off(d))%DD+DD)%DD;for(let i=Math.ceil(ZF/DD);i>=0;i--){const z0=i*DD-doff+ZN,z1=z0+DD*.45;if(z0<1.6||z0>ZF)continue;const fog=Math.pow(1-z0/ZF,1.2)*clamp((z0-1.6)/1.5);
+    ctx.fillStyle=`rgba(230,240,238,${(.45+.35*hh)*fog})`;const a=proj(t,-.07,-1.1,z0),b=proj(t,.07,-1.1,z0),c=proj(t,.07,-1.1,z1),e=proj(t,-.07,-1.1,z1);ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.lineTo(...c);ctx.lineTo(...e);ctx.fill()}
+  const PD=6,poff=((off(d))%PD+PD)%PD;for(let i=Math.ceil(ZF/PD);i>=0;i--){const z=i*PD-poff+ZN+1.5;if(z<ZN||z>ZF)continue;const fog=Math.pow(1-z/ZF,1.4);
+    [-1,1].forEach(s=>{const b=proj(t,3.1*s,-1.1,z),tp=proj(t,3.1*s,2.6,z),lp=proj(t,2.2*s,2.6,z);ctx.strokeStyle=`rgba(70,74,88,${fog})`;ctx.lineWidth=Math.max(1.5,10/z);
+      ctx.beginPath();ctx.moveTo(...b);ctx.lineTo(...tp);ctx.lineTo(...lp);ctx.stroke();const r=Math.max(3,60/z);const a=fog*(.55+.45*k);
+      const g=ctx.createRadialGradient(lp[0],lp[1]+r*.2,0,lp[0],lp[1]+r*.2,r*4);g.addColorStop(0,`rgba(255,214,150,${a})`);g.addColorStop(.3,`rgba(255,164,58,${a*.5})`);g.addColorStop(1,'rgba(255,164,58,0)');ctx.fillStyle=g;ctx.fillRect(lp[0]-r*4,lp[1]-r*4,r*8,r*8);
+      ctx.fillStyle=`rgba(255,244,220,${fog})`;ctx.beginPath();ctx.ellipse(lp[0],lp[1]+r*.25,r*.9,r*.3,0,0,7);ctx.fill();
+      const pool=proj(t,1.6*s,-1.1,z);ctx.fillStyle=`rgba(255,170,80,${.06*fog})`;ctx.beginPath();ctx.ellipse(pool[0],pool[1],r*3,r*.7,0,0,7);ctx.fill()})}
+  const sp=speed(t);if(sp>2){for(let i=0;i<30;i++){const a=rnd(i)*Math.PI*2,ph=((dir>0?d*1.3:-d*1.3)+rnd(i+9))%1;const p2=(ph+1)%1;const r0=200+p2*900,r1=r0+60+p2*280;ctx.strokeStyle=`rgba(255,220,170,${.2*(sp-2)*p2})`;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(VP.x+Math.cos(a)*r0,VP.y+Math.sin(a)*r0*.8);ctx.lineTo(VP.x+Math.cos(a)*r1,VP.y+Math.sin(a)*r1*.8);ctx.stroke()}}
+  if(dim>0){ctx.fillStyle=`rgba(5,7,12,${dim})`;ctx.fillRect(0,0,W,H)}}
+const tunnel=(t,o)=>road(t,o);
+// the rider's view: handlebars, a small gauge (no numbers) and two mirrors; Star Runner shows up only as a reflection in the right mirror (easter egg)
+function cockpit(t){const sh=(rnd(Math.floor(t*30))-.5)*2*(.6+speed(t)*.5)+2*kickP(t,.08);ctx.save();ctx.translate(sh*.6,sh);
+  ctx.strokeStyle='#0E0F13';ctx.lineCap='round';ctx.lineWidth=40;ctx.beginPath();ctx.moveTo(-40,1900);ctx.quadraticCurveTo(250,1760,540,1800);ctx.quadraticCurveTo(830,1760,1120,1900);ctx.stroke();
+  ctx.strokeStyle='#4A4F5C';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-40,1886);ctx.quadraticCurveTo(250,1746,540,1786);ctx.quadraticCurveTo(830,1746,1120,1886);ctx.stroke();
+  [[-1,150],[1,930]].forEach(([s,mx])=>{ctx.strokeStyle='#0E0F13';ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(540+s*330,1790);ctx.lineTo(mx,1680);ctx.stroke();
+    ctx.save();ctx.translate(mx,1640);ctx.fillStyle='#0E0F13';ctx.beginPath();ctx.ellipse(0,0,96,62,s*.12,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(0,0,86,53,s*.12,0,7);ctx.clip();
+    const g=ctx.createLinearGradient(0,-53,0,53);g.addColorStop(0,'#1A1838');g.addColorStop(.55,'#3A2440');g.addColorStop(.56,'#17191F');g.addColorStop(1,'#0B0C10');ctx.fillStyle=g;ctx.fillRect(-90,-56,180,112);
+    if(s>0&&DR){const [gw,gh]=DR.size;ctx.drawImage(GLC,gw*.27,gh*.08,gw*.46,gh*.42,-70,-58,140,128)}                                              // the easter egg: his own face in the mirror
+    ctx.fillStyle='rgba(255,255,255,.10)';ctx.beginPath();ctx.ellipse(-30,-26,40,10,-.4,0,7);ctx.fill();ctx.restore();
+    ctx.strokeStyle='#5A606C';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(mx,1640,90,57,s*.12,0,7);ctx.stroke()});
+  ctx.fillStyle='#0E0F13';ctx.beginPath();ctx.arc(540,1880,118,Math.PI,0);ctx.fill();ctx.strokeStyle='#3A3E48';ctx.lineWidth=4;ctx.beginPath();ctx.arc(540,1880,104,Math.PI,0);ctx.stroke();
+  for(let i=0;i<=12;i++){const a=Math.PI+i/12*Math.PI;ctx.strokeStyle=i>9?C.red:'rgba(244,241,234,.6)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(540+Math.cos(a)*92,1880+Math.sin(a)*92);ctx.lineTo(540+Math.cos(a)*80,1880+Math.sin(a)*80);ctx.stroke()}
+  const na=Math.PI+clamp(speed(t)/3.4)*Math.PI*.92+.04*Math.sin(t*23);ctx.strokeStyle=C.amber;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(540,1880);ctx.lineTo(540+Math.cos(na)*84,1880+Math.sin(na)*84);ctx.stroke();
+  [[480,C.teal],[600,C.amber]].forEach(([x,c],i)=>{ctx.fillStyle=c;ctx.globalAlpha=i?.25+.75*kickP(t,.15):.9;ctx.beginPath();ctx.arc(x,1850,7,0,7);ctx.fill();ctx.globalAlpha=1});
+  ctx.restore()}
 function header(t,t0,title,sub){const p=eo3(P(t,t0,t0+.3));ctx.save();ctx.globalAlpha*=p;ctx.translate(-40*(1-p),0);
   ctx.fillStyle=C.amber;ctx.fillRect(80,180,10,104);tx(title,112,250,72,F.hd,C.white);tx(sub,114,292,26,F.kr,C.amber,{w:'700'});ctx.restore()}
 function pop(t,t0,draw,{dur=.28,from=.6}={}){if(t<t0)return;const p=P(t,t0,t0+dur);ctx.save();ctx.globalAlpha*=clamp(p*2.5);draw(lerp(from,1,eob(p)));ctx.restore()}
 
-// ---------- Star Runner running toward the camera (live 3D): one stride per beat; slows to a stop in the ring-out and waves
+// ---------- Star Runner on his motorcycle (live 3D, bike goggles). The hero of the opening and the ending; in the data scenes only his face in the mirror.
+// Motion follows the song: leans into the road's bends, nods on the beat, tucks down for speed on the drop, a fist pump, a wheelie on the end hit, then stops and waves
 const DPX=330;let DR=null,GLC=null;
-function runState(t){const ph=Math.PI*(t-BT[0])/BPER;const sp=speed(t);const e=clamp(sp/2.2,.35,1);const s=Math.sin(ph);
-  const o={bob:-.05*e*Math.abs(Math.cos(ph)),squash:1-.03*e*Math.abs(Math.sin(ph)),lean:6*e,yaw:0,roll:-3*e*s,head:4,
-    hipR:-52*e*s,hipL:52*e*s,kneeR:15+75*e*Math.max(0,s),kneeL:15+75*e*Math.max(0,-s),
-    shR:[48*e*s,0,-12],shL:[-48*e*s,0,12],elR:-85,elL:-85};
-  if(t>RING+.4){const u=P(t,RING+.4,RING+1.4);['bob','roll','hipR','hipL','lean'].forEach(k=>o[k]*=1-u);o.kneeR=lerp(o.kneeR,0,u);o.kneeL=lerp(o.kneeL,0,u);o.shR=[o.shR[0]*(1-u),0,-10];o.shL=[o.shL[0]*(1-u),0,10];o.elR=lerp(-85,-20,u);o.elL=lerp(-85,-20,u);
-    const wv=P(t,RING+1.5,RING+1.9);if(wv>0){o.shR=[-15,0,lerp(-10,-100,eo3(wv))];o.elR=-40+30*Math.sin((t-RING)*9);o.headTilt=8*wv}}
+function riderState(t){const e=clamp(speed(t)/2.4,.3,1);const bt=(t-BT[0])/BPER,ph=((bt%1)+1)%1;const hit=Math.pow(.5+.5*Math.cos(2*Math.PI*ph),2);
+  const o={azim:.32,elev:.1,roll:-16*bend(t)-2*Math.sin(t*5)*e*.3,yaw:-6*bend(t),bob:.012*Math.abs(Math.sin(t*17))*e+.02*kickP(t,.1),head:4+7*hit,headTurn:8*Math.sin(2*Math.PI*t/(BAR*2)),tuck:0,spin:distAt(t)*9};
+  if(t<T1){o.headTurn=lerp(-26,0,eio3(P(t,BT[2],BT[4])))+6*Math.sin(t*2);o.tuck=0}                                                  // the opening: looks over at the camera, then ahead
+  if(t>=T5){o.tuck=eio3(P(t,T5,T5+.5))*(1-eio3(P(t,HIT-.25,HIT)));                                                                  // the last drop: tuck down for speed
+    const fp=P(t,bar(12),bar(12)+BPER*2);if(fp>0&&fp<1){const u=Math.sin(Math.PI*fp);o.shR=[lerp(-86,-40,u),0,lerp(-12,-60,u)];o.elR=lerp(-12,-110,u)+20*Math.sin(fp*Math.PI*6)*u;o.headTurn=-14*u}   // a fist pump
+    const wh=P(t,HIT,HIT+1.6);if(wh>0&&wh<1){const u=Math.sin(Math.PI*Math.pow(wh,.7));o.lean=-24*u;o.bob+=.32*u;o.head-=10*u}       // the wheelie on the end hit
+    const st=P(t,RING,RING+1.2);if(st>0){const u=eio3(st);o.roll*=1-u;o.yaw*=1-u;o.bob*=1-u;o.headTurn=lerp(o.headTurn,-10,u);o.head=lerp(o.head,0,u);o.azim=lerp(.32,.15,u);
+      const wv=P(t,RING+1.3,RING+1.7);if(wv>0){o.shL=[lerp(-80,-15,eo3(wv)),0,lerp(12,100,eo3(wv))];o.elL=-40+30*Math.sin((t-RING)*9);o.headTilt=-8*wv}}}
   return o}
+function mirrorState(t){const bt=(t-BT[0])/BPER,ph=((bt%1)+1)%1;return{azim:0,elev:.06,head:3+6*Math.pow(.5+.5*Math.cos(2*Math.PI*ph),2),headTurn:6*Math.sin(t*1.3),roll:-6*bend(t),spin:distAt(t)*9}}
 function runner(t,cx,feetY,sc){if(!DR)return;const [gw,gh]=DR.size;const k=sc*240/DPX;const y0=feetY-gh*DR.feet*k;
-  ctx.save();ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(cx,feetY+4,gw*k*.22,10*sc,0,0,7);ctx.fill();ctx.drawImage(GLC,cx-gw*k/2,y0,gw*k,gh*k);ctx.restore()}
+  ctx.save();ctx.fillStyle='rgba(0,0,0,.5)';ctx.beginPath();ctx.ellipse(cx,feetY+6,gw*k*.2,12*sc,0,0,7);ctx.fill();ctx.drawImage(GLC,cx-gw*k/2,y0,gw*k,gh*k);ctx.restore()}
 
 // ---------- 0 ~ T1: the tunnel at night, title, photos as lit panels on the walls
-function sceneIntro(t){tunnel(t,{dim:.15});const b=BT;
+function sceneIntro(t){road(t,{dim:.1,dir:-1});const b=BT;
   pop(t,b[0]+.05,s=>tx('오늘의 러닝',540,210,40,F.hd,C.amber,{al:'center'}));
   pop(t,b[1],s=>{ctx.save();ctx.translate(540,350);ctx.scale(s,s);tx(RUN.title,0,0,150,F.hd,C.white,{al:'center'});ctx.restore()});
   pop(t,b[2],s=>{tx(RUN.memo,540,440,40,F.hd,C.amber,{al:'center'});tx(S.dateLong,540,494,30,F.kr,C.dim,{al:'center',w:'500'})});
@@ -133,11 +156,11 @@ function sceneIntro(t){tunnel(t,{dim:.15});const b=BT;
     pop(t,t0,s=>{ctx.save();ctx.translate(cx,cy);ctx.scale(s,s);ctx.shadowColor='rgba(255,164,58,.55)';ctx.shadowBlur=40;ctx.fillStyle='#10141B';ctx.fillRect(-w/2-12,-h/2-12,w+24,h+84);ctx.shadowBlur=0;
       const sc=Math.max(w/im.width,h/im.height);const sw=w/sc,sh=h/sc;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,-w/2,-h/2,w,h);
       ctx.strokeStyle=C.amber;ctx.lineWidth=3;ctx.strokeRect(-w/2-12,-h/2-12,w+24,h+84);tx(RUN.photoCaps[i]||'',0,h/2+52,32,F.kr,C.white,{al:'center',w:'700'});ctx.restore()})});
-  runner(t,540,1790,.62)}
+  runner(t,540,1800,.78)}
 
 // ---------- T1 ~ T2: the whole Garmin capture (never zoomed or covered), tags beside it
 const CAP={w:1080,h:1483};
-function sceneCapture(t){tunnel(t,{dim:.55});header(t,T1,'오늘의 기록','가민 커넥트 그대로');
+function sceneCapture(t){road(t,{dim:.55});header(t,T1,'오늘의 기록','가민 커넥트 그대로');
   const cw=680,ch=cw*CAP.h/CAP.w,x=540-cw/2+50,y=350;
   pop(t,T1,s=>{ctx.save();ctx.translate(x+cw/2,y+ch/2);ctx.scale(s,s);ctx.shadowColor='rgba(255,164,58,.5)';ctx.shadowBlur=50;ctx.fillStyle='#000';ctx.fillRect(-cw/2-10,-ch/2-10,cw+20,ch+20);ctx.shadowBlur=0;
     ctx.drawImage(IMG.garmin,-cw/2,-ch/2,cw,ch);ctx.restore()},{dur:.35,from:.85});
@@ -145,10 +168,10 @@ function sceneCapture(t){tunnel(t,{dim:.55});header(t,T1,'오늘의 기록','가
   REG.forEach(([a,b,lab],i)=>{const t0=hb[1+i*2];const cy=y+(a+b)/2*ch;if(t<t0)return;const p=eo3(P(t,t0,t0+.25));
     ctx.save();ctx.globalAlpha*=p;ctx.fillStyle=C.amber;rr(28,cy-30,110,60,8);ctx.fill();tx(lab,83,cy+12,32,F.hd,'#120C04',{al:'center'});
     ctx.strokeStyle=C.amber;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(140,cy);ctx.lineTo(lerp(140,x-14,p),cy);ctx.stroke();ctx.restore()});
-  runner(t,540,1830,.5)}
+  cockpit(t)}
 
 // ---------- T2 ~ T3 (the riser): splits 1km to the last km top to bottom, one row per beat, faster and faster
-function sceneSplits(t){tunnel(t,{dim:.6});header(t,T2,'구간 기록','1km마다 걸린 시간  막대가 길수록 빠름');
+function sceneSplits(t){road(t,{dim:.6});header(t,T2,'구간 기록','1km마다 걸린 시간  막대가 길수록 빠름');
   const lo=Math.min(...LAPS)-25,hi=Math.max(...LAPS)+15;const rh=Math.min(108,880/NL);
   LAPS.forEach((s,k)=>{const t0=T2+.03+k*BPER*.75;const y=380+k*rh;const isF=k===FAST,isS=k===SLOW;const len=lerp(220,540,(hi-s)/(hi-lo));const col=isF?C.red:isS?C.blue:C.amber;
     if(t<t0)return;const p=eo3(P(t,t0,t0+.25));tx(lapLabel(k),90,y+56,36,F.num,C.dim,{w:'600'});
@@ -158,12 +181,12 @@ function sceneSplits(t){tunnel(t,{dim:.6});header(t,T2,'구간 기록','1km마�
       if(isF||isS)tx(isF?'가장 빠름':'가장 느림',216,y+52,26,F.hd,'#120C04',{a})}});
   const ft=T2+BPER*6.5;pop(t,ft,s=>{tx('평균페이스',92,1340,30,F.kr,C.dim,{w:'700'});tx(pace(AVGP),90,1432,88,F.num,C.teal,{w:'800'});
     tx('빠른 1km와 느린 1km 차이',990,1340,30,F.kr,C.dim,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),990,1424,60,F.hd,C.amber,{al:'right'})});
-  runner(t,540,1830,.5)}
+  cockpit(t)}
 
 // ---------- T3 ~ T4 (the drop, full speed): pace graph; the line races in; the km with the fastest moment is lit red and drawn slowly; then the card stays
 const GX0=160,GX1=975,GY0=620,GY1=1130;
 const gx=d=>GX0+d/TOTD*(GX1-GX0),gy=p=>GY0+clamp((p-PLO)/(PHI-PLO))*(GY1-GY0);
-function sceneWave(t){tunnel(t,{dim:.62});header(t,T3,'페이스 그래프',`${(TOTD/1000).toFixed(2)}km 실제 페이스`);
+function sceneWave(t){road(t,{dim:.62});header(t,T3,'페이스 그래프',`${(TOTD/1000).toFixed(2)}km 실제 페이스`);
   const WS=[];let c=T3+.05;for(let k=0;k<NL;k++){WS.push(c);c+=k===SK?BPER*3:BPER/2}
   const SK0=WS[SK],SK1=SK0+BPER*3;const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
   const revAt=tt=>{let d=0;for(let k=0;k<NL;k++){const q=k===SK?Math.pow(P(tt,SK0,SK1),1.3):eo3(P(tt,WS[k],WS[k]+.25));if(q>0)d=Math.max(d,lerp(k*1000,kEnd(k),q))}return d};
@@ -187,10 +210,10 @@ function sceneWave(t){tunnel(t,{dim:.62});header(t,T3,'페이스 그래프',`${(
   const rb=[T3+BPER*7,T3+BPER*7.5,T3+BPER*8];
   [['평균페이스',pace(AVGP),C.teal],['최고 페이스',pace(MAXP),C.red],['총 거리',(TOTD/1000).toFixed(2)+'km',C.amber]].forEach(([l,v,c],i)=>pop(t,rb[i],s=>{tx(l,90+i*310,1310,28,F.kr,C.dim,{w:'700'});tx(v,90+i*310,1394,76,F.num,c,{w:'800'})}));
   pop(t,T3+BPER*9,s=>tx(SPLIT_LINE,540,1500,50,F.hd,C.white,{al:'center'}));
-  runner(t,540,1830,.5)}
+  cockpit(t)}
 
 // ---------- T4 ~ T5 (the break, then the groove): heart rate zones in Garmin order (5존 -> 존 미만), lit like lane lights
-function sceneZones(t){tunnel(t,{dim:.62});header(t,T4,'심박존별 시간','가민 심박존 기준');
+function sceneZones(t){road(t,{dim:.62});header(t,T4,'심박존별 시간','가민 심박존 기준');
   [5,4,3,2,1,0].forEach((z,r)=>{const t0=T4+.05+r*BPER/2;const y=380+r*124;const sec=ZS[z];const col=ZC[z];if(t<t0)return;const p=eo3(P(t,t0,t0+.3));
     ctx.save();ctx.globalAlpha*=clamp(p*2);ctx.fillStyle=col;rr(88,y+2,124,60,8);ctx.fill();tx(z?`${z}존`:'존 미만',150,y+44,z?36:24,F.hd,'#0A0C10',{al:'center'});ctx.restore();
     const L=sec>0?Math.max(30,520*sec/ZMAX):0;if(L>0){const n=Math.max(1,Math.round(L/26));for(let j=0;j<n;j++){const q=clamp(p*n-j);if(q<=0)break;ctx.fillStyle=col;ctx.globalAlpha=.35+.65*q;rr(250+j*26,y+8,20,48,4);ctx.fill();ctx.globalAlpha=1}}
@@ -200,7 +223,7 @@ function sceneZones(t){tunnel(t,{dim:.62});header(t,T4,'심박존별 시간','�
   [['평균심박수',S.avgHR],['최대심박수',S.maxHR]].forEach(([l,v],k)=>pop(t,hb[k],s=>{const al=k?'right':'left',x=k?990:90;tx(l,x,1240,30,F.kr,C.dim,{al,w:'700'});
     const vw=tw(String(v),100,F.num,'800'),uw=tw('bpm',28,F.kr,'700');tx(String(v),k?x-uw-10:x,1338,100,F.num,hrCol(v),{al,w:'800'});tx('bpm',k?x:x+vw+10,1338,28,F.kr,C.dim,{al,w:'700'})}));
   pop(t,bar(10)+BPER*2,s=>{tx(ZONE_LINE,540,1450,48,F.hd,C.white,{al:'center'});tx(BREAK_LINE,540,1504,26,F.kr,BRK.length?C.amber:C.dim,{al:'center',w:'700'})});
-  runner(t,540,1830,.5)}
+  cockpit(t)}
 
 // ---------- T5 ~ 30 (the last drop, the end hit, the ring-out): title, Star Runner, stats; 완주 lights up like an exit sign on the end hit; the memo; the tunnel slows and stops
 function memoStyle(){const COL={num:C.amber,body:C.red,plan:C.teal,feel:C.blue,key:C.white};
@@ -213,7 +236,7 @@ function memoStyle(){const COL={num:C.amber,body:C.red,plan:C.teal,feel:C.blue,k
       else if(kind==='num'){c.fillStyle=`rgba(255,164,58,${.16*k})`;c.beginPath();c.roundRect(x-6,y-px*.8,w+12,px*1.04,6);c.fill()}
       else{c.fillStyle=C.white;c.fillRect(x,y+9,w*k,3)}c.restore()}}}
 let ML=null;
-function sceneEnd(t){const hit=P(t,HIT,HIT+.15),ring=P(t,RING,RING+2.5);tunnel(t,{dim:.38+.12*ring});
+function sceneEnd(t){const hit=P(t,HIT,HIT+.15),ring=P(t,RING,RING+2.5);road(t,{dim:.3+.12*ring,dir:-1});
   const flash=t>=HIT?Math.exp(-(t-HIT)/.18):0;
   pop(t,T5,s=>tx('오늘의 러닝',90,170,36,F.hd,C.amber));
   pop(t,T5+BPER/2,s=>{ctx.save();ctx.translate(90,282);ctx.scale(s,s);tx(RUN.title,0,0,108,F.hd,C.white);ctx.restore()});
@@ -222,7 +245,7 @@ function sceneEnd(t){const hit=P(t,HIT,HIT+.15),ring=P(t,RING,RING+2.5);tunnel(t
     ctx.strokeStyle=hit>0?'#E9FFF0':'rgba(53,196,106,.5)';ctx.lineWidth=4;rr(x+8,y+8,w-16,h-16,8);ctx.stroke();
     tx('완주',x+w/2-20,y+84,62,F.hd,hit>0?'#06140B':'rgba(53,196,106,.45)',{al:'center'});
     ctx.fillStyle=hit>0?'#06140B':'rgba(53,196,106,.45)';ctx.beginPath();ctx.moveTo(x+w-58,y+46);ctx.lineTo(x+w-30,y+62);ctx.lineTo(x+w-58,y+78);ctx.closePath();ctx.fill();ctx.restore()}
-  runner(t,540,830,.82);
+  runner(t,540,860,.9);
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.amber],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.teal],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.white]];
   pop(t,T5+BPER,s=>{ctx.fillStyle=C.panel;rr(60,880,960,290,18);ctx.fill()});
@@ -235,22 +258,22 @@ function sceneEnd(t){const hit=P(t,HIT,HIT+.15),ring=P(t,RING,RING+2.5);tunnel(t
     const lh=ML.px*1.6,top=y+100+(h-100-MLN.length*lh)/2+ML.px*.95;
     MLN.forEach((ln,i)=>{const t1=mt+BPER*(.5+i);if(t<t1)return;mo.k=eo3(P(t,t1+.35,t1+.8));const p=eo3(P(t,t1,t1+.3));
       ctx.save();ctx.globalAlpha*=p;ctx.translate(0,16*(1-p));MemoEmphasis.drawLine(ctx,ln,540,top+i*lh,mo);ctx.restore()})}
-  if(flash>0){ctx.fillStyle=`rgba(255,246,230,${.35*flash})`;ctx.fillRect(0,0,W,H)}}
+  if(flash>0){ctx.fillStyle=`rgba(255,246,230,${.1*flash})`;ctx.fillRect(0,0,W,H)}}
 
 // ---------- timeline: scenes change on the bar; the old page rushes past the camera into the tunnel
 const SCENES=[[0,sceneIntro],[T1,sceneCapture],[T2,sceneSplits],[T3,sceneWave],[T4,sceneZones],[T5,sceneEnd]];
 const BUF=document.createElement('canvas');BUF.width=W;BUF.height=H;
 function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';
-  if(DR)DR.draw(runState(t));
+  if(DR){const hero=t<T1||t>=T5;DR.draw(hero?riderState(t):mirrorState(t))}
   let k=0;SCENES.forEach(([s],i)=>{if(t>=s)k=i});const s0=SCENES[k][0];const tr=k>0?P(t,s0,s0+.32):1;
   if(tr<1){SCENES[k-1][1](Math.min(t,s0-.001));const b=BUF.getContext('2d');b.clearRect(0,0,W,H);b.drawImage(cv,0,0);SCENES[k][1](t);
     const e=eio3(tr),sc=1+.9*e;ctx.save();ctx.globalAlpha=1-e;ctx.translate(VP.x,VP.y);ctx.scale(sc,sc);ctx.translate(-VP.x,-VP.y);ctx.drawImage(BUF,0,0);ctx.restore()}
   else SCENES[k][1](t);
   const fi=1-P(t,0,.5);if(fi>0){ctx.fillStyle=`rgba(7,9,13,${fi})`;ctx.fillRect(0,0,W,H)}}
 window.render=render;window.DUR=DUR;
-(async()=>{await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
+(async()=>{buildSky();await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
   const fams=[[F.hd,''],[F.num,'600'],[F.num,'800'],[F.kr,'500'],[F.kr,'700'],[F.kr,'900'],[F.memo,'']];
   await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;
-  GLC=document.createElement('canvas');DR=await Dancer3D.init(GLC,{px:DPX});window.READY=true;
+  GLC=document.createElement('canvas');DR=await Rider3D.init(GLC,{px:DPX});window.READY=true;
   const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}})();
 </script></body></html>

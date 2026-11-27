@@ -1,4 +1,4 @@
-# 8안 night tunnel: a little foley under the song (a soft whoosh as each page rushes past into the tunnel, an electric buzz when the 완주 sign lights on the end hit)
+# 8안 night ride: a little foley under the song (a soft whoosh as each page rushes past, an engine rev for the wheelie and an electric buzz when the 완주 sign lights on the end hit)
 # usage: python3 sfx_b8.py <beat.js> <out_sfx.wav>
 import sys, json, numpy as np
 from scipy.signal import butter, sosfilt
@@ -17,8 +17,13 @@ def buzz(v=.25, d=.6):
     n = int(d * SR); t = np.arange(n) / SR; s = np.sign(np.sin(2 * np.pi * 120 * t)) * .3 + np.sin(2 * np.pi * 240 * t) * .5
     flick = np.where((t < .05) | ((t > .09) & (t < .12)) | (t > .16), 1, .1)
     return bp(s, 150, 3000) * flick * np.exp(-t / .35) * v
+def rev(v=.5, d=1.4):
+    n = int(d * SR); t = np.arange(n) / SR; f = 70 + 110 * np.sin(np.pi * np.minimum(1, t / (d * .55))) ** .7    # pitch up then down
+    ph = 2 * np.pi * np.cumsum(f) / SR; x = (np.sign(np.sin(ph)) * .5 + np.sin(2 * ph) * .3 + np.sin(3 * ph) * .2) * (1 + .3 * np.sin(2 * np.pi * 31 * t))
+    return bp(x, 60, 2500) * np.minimum(1, t / .05) * np.minimum(1, (d - t) / .4) * v
 bar = lambda k: DB[k]
 for k in (2, 4, 6, 9, 11): ev(whoosh(.35), bar(k) - .05, 1, 0)
-ev(buzz(.4), bar(13), 1, .3)
+ev(rev(.55), bar(13) - .05, 1, -.1)
+ev(buzz(.3), bar(13) + .05, 1, .4)
 pk = np.abs(out).max(); out *= 10 ** (-18 / 20) / pk
 wavfile.write(sys.argv[2], SR, (out * 32767).astype(np.int16)); print('sfx peak -18 dBFS')
