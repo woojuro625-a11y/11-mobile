@@ -1,4 +1,4 @@
-# 4안 zine: quiet paper foley under the song (scissor snips on the three cuts, tape, stamps)
+# 4안 snare drum stage: almost no foley (the song is the drums), two quiet tape sounds
 # usage: python3 sfx_b4.py <beat.js> <out_sfx.wav>
 import sys, json, numpy as np
 from scipy.signal import butter, sosfilt
@@ -25,12 +25,8 @@ def rip(v=.35, dur=.3):  # tape
     n = int(dur * SR); x = bp(rng.standard_normal(n), 1500, 7000) * (np.sin(np.pi * np.arange(n) / n) ** .7)
     x *= 1 + .8 * (rng.random(n) > .97); return x * v
 T1, T2, T3, TJ, T4, T5 = near(3.2), near(7.4), near(11.65), near(13.8), near(15.9), near(20.1)
-for T in (T1, T2, T3, T4, T5):
-    for j in range(3): ev(snip(.45), T + j * per / 4 - .01, 1, (-.4, 0, .4)[j])
-ev(paper(.4), BT[0]); ev(paper(.35), DB[0]); ev(rip(.3), T1 + .02)               # opening slaps / capture taped down
-b = after(DB[0], 4); ev(paper(.3), b[1] + per / 2, 1, -.4); ev(paper(.3), b[2] + per, 1, .4)   # prints land
-sb = after(near(T2 + 4 * per - .01), 4); ev(thump(.6), sb[0], 1, .4); ev(thump(.5), sb[1], 1, .4)   # split stamps
-SK1 = max(T3 + .15 + 7 * per / 2, TJ) + 2 * per; ev(thump(.45), SK1); ev(paper(.4), SK1 + per / 2, 1, -.3)  # sprint dot + call-out
-lb = after(T5, 8); ev(thump(.7), lb[2], 1, .3); ev(rip(.25, .4), lb[6])                 # 완주 stamp / memo page
+# the song is all drums: no extra hits, only two quiet tape sounds (capture taped down, setlist taped on the stage)
+ev(rip(.3), T1 + .02, 1, -.2)
+lb = after(T5, 8); ev(rip(.25, .4), lb[5], 1, .2)
 pk = np.abs(out).max(); out *= 10 ** (-15 / 20) / pk
 wavfile.write(sys.argv[2], SR, (out * 32767).astype(np.int16)); print('sfx peak -15 dBFS  cuts at', [round(x, 3) for x in (T1, T2, T3, T4, T5)])

@@ -1,6 +1,7 @@
 # 3안: cut a song to exactly 30 s on bar lines and write the beat grid the video follows
 # usage: python3 -I music_edit.py <song.wav> <out_music30.wav> <out_beat.js> [drop a0 a1 b0 b1 [kick|onset]]
 #   kick (default): a bar starts on the beat with the most kick energy  onset: on the strongest onset (used for 3안 Pocketed Bars)
+#   first: the first beat of the edit is a downbeat (four-on-the-floor songs where every beat has a kick, e.g. 5안 Card Countdown)
 # drop = time in the EDIT where the beat comes in (listen and set it; 7.154 for this song). The video's scenes follow the grid from there
 # default cut for "Pocketed Bars": A = 1.391~21.409 s (ambient intro + drop) + B = 48.298~58.28 s (outro),
 # joined with a 50 ms equal-power crossfade, padded to 30.000 s; the join lands near the 10 s loop start (about 20 s)
@@ -31,7 +32,7 @@ grid = [g for g in grid if g >= drop_guess - period * .6]
 Sx = np.abs(librosa.stft(y2, hop_length=hop)); fr = librosa.fft_frequencies(sr=22050); kick = Sx[(fr > 40) & (fr < 150)].sum(0)
 PHASE = sys.argv[9] if len(sys.argv) >= 10 else 'kick'
 strength = (lambda b: env[min(len(env) - 1, int(b * 22050 / hop))]) if PHASE == 'onset' else lambda b: kick[min(len(kick) - 6, int(b * 22050 / hop)):min(len(kick), int(b * 22050 / hop) + 6)].max()
-ph = max(range(4), key=lambda k: np.mean([strength(b) for b in grid[k::4]]))
+ph = 0 if PHASE == 'first' else max(range(4), key=lambda k: np.mean([strength(b) for b in grid[k::4]]))
 out = [[round(float(b), 3), (i - ph) % 4 == 0] for i, b in enumerate(grid)]
 open(out_js, 'w').write('const BEATS=' + json.dumps(out) + ';')
 print('music', m.shape[1] / sr, 's  drop', out[0][0], ' beats', len(out), ' downbeats', [b for b, d in out if d][:4])
