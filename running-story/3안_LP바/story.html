@@ -293,9 +293,12 @@ function sceneZones(t){drawBG(t);drawPlayer(t);const a=P(t,15.536,15.8)*(1-P(t,1
   [[px+28,py+28],[px+pw-28,py+28],[px+28,py+ph-28],[px+pw-28,py+ph-28]].forEach(([x,y])=>{ctx.fillStyle='#8A6A3A';ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fill();ctx.strokeStyle='#3A2A18';ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.stroke()});
   const ZB=beatsFrom(15.536,5);const NS=18,sh=24,sg=6,cw=112,gap=46,x0=540-(5*cw+4*gap)/2,by=1010;
   for(let i=1;i<=5;i++){const x=x0+(i-1)*(cw+gap);const sec=ZS[i];const lit=sec>0?Math.max(1,Math.round(NS*sec/ZMAX)):0;const b=ZB[i-1];
-    const p=P(t,b,b+.4);const cur=lit*clamp(eoBack(p,2.2),0,1.15);const col=ZC[i];const bp=beatP(t);
-    for(let s=0;s<NS;s++){const y=by-(s+1)*(sh+sg)+sg;const on=s<cur;ctx.fillStyle=on?col:'rgba(243,230,207,.06)';ctx.globalAlpha=a*(on?.78+.22*bp:1);ctx.fillRect(x,y,cw,sh)}
-    ctx.globalAlpha=a;if(p>=1&&lit<NS&&sec>0){const y=by-(lit+1)*(sh+sg)+sg;ctx.fillStyle=`rgba(255,240,225,${.7*bp})`;ctx.fillRect(x,y,cw,sh)}   // peak light on the beat
+    // EQ pump: on every beat the column shoots from 0 to its own max (= its time in that zone) and falls back before the next beat
+    const lb=lastOf(BT,t),since=t-lb;const pump=t<b?0:since<.045?since/.045:Math.pow(clamp(1-(since-.045)/(BPER*(.8+.05*i))),1.5);
+    const cur=lit*pump;const col=ZC[i];
+    for(let s=0;s<NS;s++){const y=by-(s+1)*(sh+sg)+sg;const on=s<cur;ctx.fillStyle=on?col:'rgba(243,230,207,.06)';ctx.globalAlpha=a*(on?.72+.28*clamp(cur-s):1);ctx.fillRect(x,y,cw,sh)}
+    ctx.globalAlpha=a;if(t>=b&&sec>0){const y=by-lit*(sh+sg)+sg;ctx.fillStyle=col;ctx.globalAlpha=a*.95;ctx.fillRect(x,y,cw,sh);ctx.fillStyle='rgba(255,245,235,.85)';ctx.fillRect(x,y,cw,3)}   // peak hold at the max
+    ctx.globalAlpha=a;
     const tp=P(t,b+.1,b+.4);if(tp>0){ctx.save();ctx.globalAlpha*=tp;const cx=x+cw/2;
       tx(`${i}존`,cx,by+52,38,F.kr,col,{al:'center',w:'700'});tx(zRange(i),cx,by+88,22,F.mono,C.creamD,{al:'center'});
       tx(mmss(sec),cx,by+148,46,F.serif,sec>0?C.cream:'rgba(243,230,207,.4)',{al:'center'});tx(`${Math.round(sec/ZTOT*100)}%`,cx,by+190,28,F.kr,col,{al:'center',w:'700'});ctx.restore()}}
