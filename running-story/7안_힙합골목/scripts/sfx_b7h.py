@@ -14,8 +14,8 @@ def spray(v=.35, d=.45):
     n = int(d * SR); t = np.arange(n) / SR; return bp(rng.standard_normal(n), 3000, 12000) * np.minimum(1, t / .02) * np.minimum(1, (d - t) / .12) * v
 def click(v=.4):
     n = int(.06 * SR); t = np.arange(n) / SR; return (bp(rng.standard_normal(n), 900, 5000) * env(n, .0005, .006) + np.sin(2 * np.pi * 180 * t) * env(n, .001, .015) * .5) * v
-T5 = near(21.0); lb = after(T5, 8)
-ev(spray(), lb[1] + per / 2 - .05, 1, .4)
-ev(click(), lb[6], 1, -.2)
+I1 = BT.index(min(BT, key=lambda b: abs(b - 5.46))); T5 = BT[I1 + 20]; lb = after(T5, 8)
+ev(spray(), T5 + per - .05, 1, .4)
+ev(click(), T5 + per * 2.6, 1, -.2)
 pk = np.abs(out).max(); out *= 10 ** (-17 / 20) / pk
 wavfile.write(sys.argv[2], SR, (out * 32767).astype(np.int16)); print('sfx peak -17 dBFS')

@@ -22,7 +22,7 @@ def rev(v=.5, d=1.4):
     ph = 2 * np.pi * np.cumsum(f) / SR; x = (np.sign(np.sin(ph)) * .5 + np.sin(2 * ph) * .3 + np.sin(3 * ph) * .2) * (1 + .3 * np.sin(2 * np.pi * 31 * t))
     return bp(x, 60, 2500) * np.minimum(1, t / .05) * np.minimum(1, (d - t) / .4) * v
 bar = lambda k: DB[k]
-for k in (2, 4, 6, 9, 11): ev(whoosh(.35), bar(k) - .05, 1, 0)
+for t0 in (bar(2), bar(4), bar(5) + 2 * (BT[1] - BT[0]), bar(8), bar(10)): ev(whoosh(.35), t0 - .05, 1, 0)
 ev(rev(.55), bar(12) - .05, 1, -.1)
 ev(buzz(.3), bar(12) + .05, 1, .4)
 pk = np.abs(out).max(); out *= 10 ** (-18 / 20) / pk

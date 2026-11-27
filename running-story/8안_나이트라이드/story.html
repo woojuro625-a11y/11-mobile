@@ -49,7 +49,7 @@ const kickP=(t,k=.1)=>{const b=lastOf(KK,t);return t-b<1?Math.exp(-(t-b)/k):0};
 const OFF=BT.map(b=>b+BPER/2);const hatP=(t,k=.06)=>{const b=lastOf(OFF,t);return t-b<1?Math.exp(-(t-b)/k):0};
 const fr=t=>Math.max(0,Math.min(1799,Math.floor(t*60)));const bassAt=t=>BASS[fr(t)],loudAt=t=>LOUD[fr(t)];
 const beatsFrom=(t0,n)=>{const i=BT.findIndex(b=>b>=t0-.02);return BT.slice(i,i+n)};
-const T1=bar(2),T2=bar(4),T3=bar(6),T4=bar(9),T5=bar(11),HIT=bar(12),RING=28.25;   // song from the start: intro, bass at bar 3, riser bars 5~7, DROP bar 8, break bar 11, drop again bar 12 (HIT), fade-out 29~30
+const T1=bar(2),T2=bar(4),T3=bar(5)+BPER*2,T4=bar(8),T5=bar(10),HIT=bar(12),RING=28.25;   // the ending from 19.07 s: the whole page is up by 22 s and holds; the drop that comes back (HIT) lights the 완주 sign   // song from the start: intro, bass at bar 3, riser bars 5~7, DROP bar 8, break bar 11, drop again bar 12 (HIT), fade-out 29~30
 // riding speed follows the song: slow intro, rolling after the bass, speeding up through the riser, full speed on the drop, easing in the break, stopping in the ring-out
 function speed(t){if(t<bar(3))return .5;if(t<bar(5))return .9;if(t<bar(8))return lerp(.9,2.4,eio3(P(t,bar(5),bar(8))));if(t<T5)return 3.2;if(t<HIT)return 1.1;if(t<RING)return 2.8;
   return 2.8*Math.pow(1-P(t,RING,29.95),2)}
@@ -103,7 +103,7 @@ function road(t,{dim=0,dir=1}={}){const sp=speed(t),k=kickP(t,.11)*Math.min(1,lo
   if(dir>0)cameo(t)}
 const tunnel=(t,o)=>road(t,o);
 // the easter egg in the data scenes: Star Runner overtakes the camera once per page, tucked low, and rides off toward the horizon (he passes behind the screens)
-const CAMEO=()=>[T1,T2,T3,T4].map((s0,i)=>[s0+BAR*(i%2?1.1:.7),1.9,i%2?-1:1]);
+const CAMEO=()=>[T1,T2,T3,T4].map((s0,i)=>[s0+BAR*.55,1.6,i%2?-1:1]);
 function cameoAt(t){for(const [a,d,side] of CAMEO())if(t>=a&&t<a+d)return{u:(t-a)/d,side};return null}
 function cameo(t){const c=cameoAt(t);if(!c||!DR)return;const u=eio3(c.u);const [gw,gh]=DR.size;
   const sc=lerp(.58,.12,Math.pow(u,.7)),x=lerp(540+c.side*300,VP.x+c.side*40,u),fy=lerp(1880,VP.y+120,Math.pow(u,.8));const k=sc*240/DPX;
@@ -168,12 +168,12 @@ function sceneCapture(t){road(t,{dim:.35});header(t,T1,'오늘의 기록','가�
 function sceneSplits(t){road(t,{dim:.35});header(t,T2,'구간 기록','1km마다 걸린 시간  막대가 길수록 빠름');
   const X=60,Y=360,Wd=960,Hd=860;hud(X,Y,Wd,Hd,'LAP  1KM SPLITS',t,T2);
   const lo=Math.min(...LAPS)-25,hi=Math.max(...LAPS)+15;const rh=Math.min(88,620/NL);
-  LAPS.forEach((s,k)=>{const t0=T2+.15+k*BPER*.7;const y=Y+80+k*rh;const isF=k===FAST,isS=k===SLOW;const len=lerp(200,520,(hi-s)/(hi-lo));const col=isF?C.red:isS?C.blue:C.amber;
+  LAPS.forEach((s,k)=>{const t0=T2+.15+k*BPER*.5;const y=Y+80+k*rh;const isF=k===FAST,isS=k===SLOW;const len=lerp(200,520,(hi-s)/(hi-lo));const col=isF?C.red:isS?C.blue:C.amber;
     if(t<t0)return;const p=eo3(P(t,t0,t0+.25));tx(lapLabel(k),X+40,y+52,34,F.num,C.dim,{w:'600'});
     const segs=Math.round(len/22);for(let j=0;j<segs;j++){const q=clamp(p*segs-j);if(q<=0)break;ctx.fillStyle=col;ctx.globalAlpha=.3+.7*q;rr(X+150+j*22,y+16,16,46,3);ctx.fill();ctx.globalAlpha=1}   // LED segments
     const vt=t0+.18;if(t>=vt){const a=P(t,vt,vt+.2);tx(pace(s),X+150+segs*22+20,y+58,52,F.num,isF?C.red:isS?C.blue:C.white,{w:'800',a});
       if(isF||isS){const tg=isF?'가장 빠름':'가장 느림';ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=col;const ww=tw(tg,22,F.hd)+20;rr(X+Wd-ww-36,y+20,ww,38,8);ctx.fill();tx(tg,X+Wd-36-ww/2,y+47,22,F.hd,'#0A0C10',{al:'center'});ctx.restore()}}});
-  const ft=T2+BPER*6.4;pop(t,ft,s=>{ctx.fillStyle='rgba(120,230,220,.18)';ctx.fillRect(X+30,Y+Hd-150,Wd-60,2);
+  const ft=T2+BPER*4.6;pop(t,ft,s=>{ctx.fillStyle='rgba(120,230,220,.18)';ctx.fillRect(X+30,Y+Hd-150,Wd-60,2);
     tx('평균페이스',X+40,Y+Hd-104,28,F.kr,C.dim,{w:'700'});tx(pace(AVGP),X+40,Y+Hd-30,80,F.num,C.teal,{w:'800'});
     tx('빠른 1km와 느린 1km 차이',X+Wd-40,Y+Hd-104,28,F.kr,C.dim,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),X+Wd-40,Y+Hd-36,58,F.hd,C.amber,{al:'right'})});
   cockpit(t)}
@@ -186,8 +186,8 @@ function sceneWave(t){road(t,{dim:.35});header(t,T3,'페이스 그래프',`${(TO
   const X=50,Y=360,Wd=980,Hd=860;hud(X,Y,Wd,Hd,'NAVI  PACE ROUTE',t,T3);
   ctx.save();rr(X+2,Y+2,Wd-4,Hd-4,28);ctx.clip();ctx.strokeStyle='rgba(90,170,200,.07)';ctx.lineWidth=2;                                            // a faint street grid like a night map
   for(let i=0;i<14;i++){ctx.beginPath();ctx.moveTo(X+rnd(i)*Wd,Y);ctx.lineTo(X+rnd(i+20)*Wd,Y+Hd);ctx.stroke();ctx.beginPath();ctx.moveTo(X,Y+rnd(i+40)*Hd);ctx.lineTo(X+Wd,Y+rnd(i+60)*Hd);ctx.stroke()}ctx.restore();
-  const WS=[];let c=T3+.15;for(let k=0;k<NL;k++){WS.push(c);c+=k===SK?Math.max(BPER*3,bar(8)-c):BPER/2}
-  const SK0=WS[SK],SK1=Math.max(SK0+BPER*3,bar(8));const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
+  const WS=[];let c=T3+.15;for(let k=0;k<NL;k++){WS.push(c);c+=k===SK?BPER*3:BPER/2}
+  const SK0=WS[SK],SK1=SK0+BPER*3;const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
   const revAt=tt=>{let d=0;for(let k=0;k<NL;k++){const q=k===SK?Math.pow(P(tt,SK0,SK1),1.3):eo3(P(tt,WS[k],WS[k]+.25));if(q>0)d=Math.max(d,lerp(k*1000,kEnd(k),q))}return d};
   const sp=P(t,SK0,SK0+.2);if(t<T3+.15)return;
   for(let p=Math.ceil(PLO/60)*60;p<=PHI;p+=60){const y=gy(p);ctx.strokeStyle='rgba(244,241,234,.12)';ctx.lineWidth=2;ctx.setLineDash([6,10]);ctx.beginPath();ctx.moveTo(GX0,y);ctx.lineTo(GX1,y);ctx.stroke();ctx.setLineDash([]);
@@ -206,9 +206,9 @@ function sceneWave(t){road(t,{dim:.35});header(t,T3,'페이스 그래프',`${(TO
       ctx.fillStyle='rgba(30,8,8,.92)';rr(-280,-90,560,180,16);ctx.fill();ctx.strokeStyle=C.red;ctx.lineWidth=3;rr(-280,-90,560,180,16);ctx.stroke();ctx.fillStyle=C.red;rr(-280,-90,14,180,[16,0,0,16]);ctx.fill();
       tx(SPRINT_T,-240,-34,34,F.hd,C.white);tx('순간 최고',-240,40,24,F.kr,C.dim,{w:'700'});tx(pace(MAXP),-126,62,80,F.num,C.red,{w:'800'});
       tx(`${lapLabel(SK)} 구간`,252,4,24,F.kr,C.dim,{al:'right',w:'700'});tx(pace(LAPS[SK]),252,62,50,F.num,C.white,{al:'right',w:'800'});ctx.restore()})}
-  const rb=[T3+BPER*7,T3+BPER*7.5,T3+BPER*8];
+  const rb=[T3+BPER*7.2,T3+BPER*7.6,T3+BPER*8];
   [['평균페이스',pace(AVGP),C.teal],['최고 페이스',pace(MAXP),C.red],['총 거리',(TOTD/1000).toFixed(2)+'km',C.amber]].forEach(([l,v,c],i)=>pop(t,rb[i],s=>{tx(l,110+i*300,1040,26,F.kr,C.dim,{w:'700'});tx(v,110+i*300,1114,70,F.num,c,{w:'800'})}));
-  pop(t,T3+BPER*9,s=>tx(SPLIT_LINE,540,1192,42,F.hd,C.white,{al:'center'}));
+  pop(t,T3+BPER*8.5,s=>tx(SPLIT_LINE,540,1192,42,F.hd,C.white,{al:'center'}));
   cockpit(t)}
 
 // ---------- T4 ~ T5 (the break, then the groove): heart rate zones on the cluster (Garmin order 5존 -> 존 미만) as LED bars, and a tacho-style heart rate gauge
@@ -220,14 +220,14 @@ function sceneZones(t){road(t,{dim:.35});header(t,T4,'심박존별 시간','가�
     const L=sec>0?Math.max(26,470*sec/ZMAX):0;const n=Math.round(L/24);for(let j=0;j<n;j++){const q=clamp(p*n-j);if(q<=0)break;ctx.fillStyle=col;ctx.globalAlpha=.35+.65*q;rr(X+190+j*24,y+10,18,44,3);ctx.fill();ctx.globalAlpha=1}
     const x2=X+190+n*24+16;tx(mmss(sec),x2,y+50,46,F.num,sec>0?C.white:'rgba(244,241,234,.35)',{w:'800',a:P(t,t0+.1,t0+.3)});tx(`${Math.round(sec/ZTOT*100)}%`,x2+tw(mmss(sec),46,F.num,'800')+10,y+48,24,F.kr,col,{w:'900',a:P(t,t0+.1,t0+.3)})});
   // tacho gauge: 90~190 bpm, zone-coloured band, needle sweeps to the average, a red mark at the max
-  const gt=bar(10);const gp=eo3(P(t,gt,gt+.6));if(gp>0){const cx=540,cy=1150,R=112,A0=Math.PI*.85,A1=Math.PI*2.15,lo=90,hi=190;const ang=b=>A0+(clamp((b-lo)/(hi-lo)))*(A1-A0);
+  const gt=T4+BPER*3.2;const gp=eo3(P(t,gt,gt+.6));if(gp>0){const cx=540,cy=1150,R=112,A0=Math.PI*.85,A1=Math.PI*2.15,lo=90,hi=190;const ang=b=>A0+(clamp((b-lo)/(hi-lo)))*(A1-A0);
     ctx.save();ctx.globalAlpha*=gp;ctx.lineWidth=18;const edges=[lo,...DATA.zones,hi];for(let z=0;z<6;z++){ctx.strokeStyle=ZC[z];ctx.beginPath();ctx.arc(cx,cy,R,ang(edges[z]),ang(edges[z+1]));ctx.stroke()}
     for(let b=lo;b<=hi;b+=10){const a=ang(b);ctx.strokeStyle='rgba(244,241,234,.5)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(R-16),cy+Math.sin(a)*(R-16));ctx.lineTo(cx+Math.cos(a)*(R-28),cy+Math.sin(a)*(R-28));ctx.stroke()}
     const am=ang(S.maxHR);ctx.strokeStyle=C.red;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(cx+Math.cos(am)*(R-12),cy+Math.sin(am)*(R-12));ctx.lineTo(cx+Math.cos(am)*(R+16),cy+Math.sin(am)*(R+16));ctx.stroke();
     const an=lerp(A0,ang(S.avgHR),eo3(P(t,gt+.2,gt+1)));ctx.strokeStyle='#FFFFFF';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(an)*(R-30),cy+Math.sin(an)*(R-30));ctx.stroke();ctx.fillStyle='#22252B';ctx.beginPath();ctx.arc(cx,cy,14,0,7);ctx.fill();ctx.restore();
     [['평균심박수',S.avgHR,0],['최대심박수',S.maxHR,1]].forEach(([l,v,k])=>{const al=k?'right':'left',x=k?X+Wd-40:X+40;tx(l,x,1100,26,F.kr,C.dim,{al,w:'700',a:gp});
       const vw=tw(String(v),84,F.num,'800'),uw=tw('bpm',24,F.kr,'700');tx(String(v),k?x-uw-8:x,1180,80,F.num,hrCol(v),{al,w:'800',a:gp});tx('bpm',k?x:x+vw+8,1180,24,F.kr,C.dim,{al,w:'700',a:gp})})}
-  pop(t,bar(10)+BPER*2,s=>{tx(ZONE_LINE,540,962,38,F.hd,C.white,{al:'center'});tx(BREAK_LINE,540,1000,24,F.kr,BRK.length?C.amber:C.dim,{al:'center',w:'700'})});
+  pop(t,T4+BPER*5,s=>{tx(ZONE_LINE,540,962,38,F.hd,C.white,{al:'center'});tx(BREAK_LINE,540,1000,24,F.kr,BRK.length?C.amber:C.dim,{al:'center',w:'700'})});
   cockpit(t)}
 
 // ---------- T5 ~ 30 (the last drop, the end hit, the ring-out): title, Star Runner, stats; 완주 lights up like an exit sign on the end hit; the memo; the tunnel slows and stops
@@ -254,14 +254,14 @@ function sceneEnd(t){const hit=P(t,HIT,HIT+.15),ring=P(t,RING,RING+2.5);road(t,{
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.amber],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.teal],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.white]];
   pop(t,T5+BPER,s=>{ctx.fillStyle=C.panel;rr(60,880,960,290,18);ctx.fill()});
-  CR.forEach(([l,v,u,c],i)=>{const t0=T5+BPER*(1.5+.5*i);const col=i%3,row=Math.floor(i/3);const cx=220+col*320,y=940+row*130;
+  CR.forEach(([l,v,u,c],i)=>{const t0=T5+BPER*(1.5+.4*i);const col=i%3,row=Math.floor(i/3);const cx=220+col*320,y=940+row*130;
     pop(t,t0,s=>{tx(l,cx,y,26,F.kr,C.dim,{al:'center',w:'700'});const vw=tw(v,64,F.num,'800'),uw=u?tw(u,22,F.kr,'700')+6:0;tx(v,cx-uw/2,y+70,64,F.num,c,{al:'center',w:'800'});if(u)tx(u,cx-uw/2+vw/2+6,y+68,22,F.kr,C.dim,{w:'700'})})});
-  const mt=HIT+BPER*2;const x=60,y=1210,w=960,h=520;
+  const mt=T5+BPER*3.2;const x=60,y=1210,w=960,h=520;
   pop(t,mt,s=>{ctx.fillStyle=C.panel;rr(x,y,w,h,18);ctx.fill();ctx.strokeStyle='rgba(255,164,58,.6)';ctx.lineWidth=2;rr(x,y,w,h,18);ctx.stroke();ctx.fillStyle=C.amber;ctx.fillRect(x+40,y+40,8,40);tx('러닝 메모',x+62,y+74,34,F.hd,C.white)},{from:.95});
   if(t>=mt){const MLN=MemoEmphasis.parse(RUN.review,RUN.reviewMarks);const mo=memoStyle();
     if(!ML){for(let px=50;px>=32;px-=2){mo.px=px;if(MLN.every(l=>MemoEmphasis.width(ctx,l,mo)<=w-110)){ML={px};break}}if(!ML)ML={px:32}}mo.px=ML.px;
     const lh=ML.px*1.6,top=y+100+(h-100-MLN.length*lh)/2+ML.px*.95;
-    MLN.forEach((ln,i)=>{const t1=mt+BPER*(.5+i);if(t<t1)return;mo.k=eo3(P(t,t1+.35,t1+.8));const p=eo3(P(t,t1,t1+.3));
+    MLN.forEach((ln,i)=>{const t1=mt+BPER*(.2+.3*i);if(t<t1)return;mo.k=eo3(P(t,t1+.2,t1+.5));const p=eo3(P(t,t1,t1+.3));
       ctx.save();ctx.globalAlpha*=p;ctx.translate(0,16*(1-p));MemoEmphasis.drawLine(ctx,ln,540,top+i*lh,mo);ctx.restore()})}
   if(flash>0){ctx.fillStyle=`rgba(255,246,230,${.1*flash})`;ctx.fillRect(0,0,W,H)}}
 

@@ -309,17 +309,18 @@ function sceneLoop(t){bg(t,{cy:560});const lb=beatsFrom(T5,16);
   dancer(t,540,850,1.0);
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.orange],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.brown]];
-  CR.forEach(([l,v,u,c],i)=>{const k=boing(t,lb[2]+BPER/2*i+(i%2?BPER*.08:0),.35);if(k<0)return;const col=i%3,row=Math.floor(i/3);const cx=90+col*310+140,cy=950+row*150;
+  CR.forEach(([l,v,u,c],i)=>{const k=boing(t,T5+BPER*.8+BPER/5*i,.35);if(k<0)return;const col=i%3,row=Math.floor(i/3);const cx=90+col*310+140,cy=950+row*150;
     ctx.save();ctx.translate(cx,cy);ctx.scale(k,k);ctx.fillStyle=C.cream2;rr(-140,-62,280,128,28);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=3;rr(-140,-62,280,128,28);ctx.stroke();
       tx(l,0,-24,24,F.kr,C.brown2,{al:'center',w:'700'});const vw=tw(v,52,F.retro),uw=u?tw(u,22,F.kr,'700')+6:0;tx(v,-uw/2,40,52,F.retro,c,{al:'center'});if(u)tx(u,-uw/2+vw/2+6,38,22,F.kr,C.brown2,{w:'700'});ctx.restore()});
   // memo card with emphasis (skill running-memo-emphasis, 70s style)
-  const mt=lb[6];const q=boing(t,mt,.4);if(q>=0){const x=70,y=1255,w=940,h=420;ctx.save();ctx.translate(540,y+h/2);ctx.scale(q,q);ctx.translate(-540,-(y+h/2));
+  const mt=T5+BPER*1.6;const q=boing(t,mt,.4);   // everything is on screen by ~22 s, then the page holds to the end
+ if(q>=0){const x=70,y=1255,w=940,h=420;ctx.save();ctx.translate(540,y+h/2);ctx.scale(q,q);ctx.translate(-540,-(y+h/2));
     ctx.fillStyle=C.brown;rr(x+10,y+10,w,h,36);ctx.fill();ctx.fillStyle=C.cream2;rr(x,y,w,h,36);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=4;rr(x,y,w,h,36);ctx.stroke();
     [C.orange,C.mustard,C.brown].forEach((c,j)=>{ctx.fillStyle=c;ctx.fillRect(x+40+j*26,y+34,18,18)});tx('러닝 메모',x+130,y+54,32,F.kd,C.brown);
     const MLN=MemoEmphasis.parse(RUN.review,RUN.reviewMarks);const mo=memoStyle();
     if(!ML){for(let px=46;px>=32;px-=2){mo.px=px;if(MLN.every(l=>MemoEmphasis.width(ctx,l,mo)<=w-110)){ML={px};break}}if(!ML)ML={px:32}}mo.px=ML.px;
     const lh=ML.px*1.42,top=y+80+(h-80-MLN.length*lh)/2+ML.px*.95;
-    MLN.forEach((ln,i)=>{const t1=mt+BPER*(.5+.5*i);const p=boing(t,t1,.3);if(p<0)return;mo.k=eo3(P(t,t1+.35,t1+.75));ctx.save();ctx.translate(540,top+i*lh);ctx.scale(1,clamp(p,0,1.2));MemoEmphasis.drawLine(ctx,ln,0,0,mo);ctx.restore()});
+    MLN.forEach((ln,i)=>{const t1=mt+.15+.16*i;const p=boing(t,t1,.3);if(p<0)return;mo.k=eo3(P(t,t1+.2,t1+.45));ctx.save();ctx.translate(540,top+i*lh);ctx.scale(1,clamp(p,0,1.2));MemoEmphasis.drawLine(ctx,ln,0,0,mo);ctx.restore()});
     ctx.restore()}}
 
 // ---------- timeline

@@ -50,7 +50,7 @@ const OFF=BT.map(b=>b+BPER/2);const offP=(t,k=.07)=>{const b=lastOf(OFF,t);retur
 const fr=t=>Math.max(0,Math.min(1799,Math.floor(t*60)));const bassAt=t=>BASS[fr(t)],loudAt=t=>LOUD[fr(t)];
 const nearDB=x=>DB.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a,DB[0]);
 const beatsFrom=(t0,n)=>{const i=BT.findIndex(b=>b>=t0-.02);return BT.slice(i,i+n)};
-const I1=BT.indexOf(nearDB(5.46));const T1=BT[I1],T2=BT[I1+5],T3=BT[I1+11],T4=BT[I1+19],T5=nearDB(21.0);   // capture 5 beats, splits 6, pace graph 8 (time to read the sprint card), zones 5
+const I1=BT.indexOf(nearDB(5.46));const T1=BT[I1],T2=BT[I1+4],T3=BT[I1+9],T4=BT[I1+16],T5=BT[I1+20];   // ending from 18.46 s so the whole page is up by 22 s and holds   // capture 5 beats, splits 6, pace graph 8 (time to read the sprint card), zones 5
 const LASTBEAT=28.0-BPER;   // the 1 s fade-out: he relaxes and waves
 
 // ---------- pop-in: whatever appears at t0 slides up a little and fades in (no after-images)
@@ -189,7 +189,7 @@ function sceneSplits(t){bg(t,{dim:.55});header(t,T2,'구간 기록','1km마다 �
     echo(t,t0,(p)=>sprayBar(200,y+12,len*p,56,col,k+2));
     const vt=t0+.15;if(t>=vt){tx(pace(s),200+len+22,y+60,50,F.slab,isF?C.red:isS?C.blue:C.cream,{a:P(t,vt,vt+.2)});
       if(isF||isS){const tg=isF?'가장 빠름':'가장 느림';tx(tg,216,y+52,26,F.kd,'#1A1410',{a:P(t,vt,vt+.2)})}}});
-  const ft=T2+BPER*4.5;echo(t,ft,()=>{tx('평균페이스',92,1400,30,F.kr,C.dim,{w:'700'});tx(pace(AVGP),90,1490,82,F.slab,C.green);
+  const ft=T2+BPER*3.6;echo(t,ft,()=>{tx('평균페이스',92,1400,30,F.kr,C.dim,{w:'700'});tx(pace(AVGP),90,1490,82,F.slab,C.green);
     tx('빠른 1km와 느린 1km 차이',990,1400,30,F.kr,C.dim,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),990,1482,60,F.kd,C.amber,{al:'right'})},{dx:16,dy:0})}
 
 // ---------- T3 ~ T4: pace graph; the line is drawn with its echoes trailing behind; the km of the fastest moment is lit red, then a card stays
@@ -214,7 +214,7 @@ function sceneWave(t){bg(t,{dim:.55});header(t,T3,'페이스 그래프',`${(TOTD
       ctx.fillStyle='#1A1410';rr(-300,-104,600,208,24);ctx.fill();ctx.strokeStyle=C.red;ctx.lineWidth=3;rr(-300,-104,600,208,24);ctx.stroke();
       tx(SPRINT_T,-268,-44,38,F.kd,C.cream);tx('순간 최고',-268,40,26,F.kr,C.dim,{w:'700'});tx(pace(MAXP),-140,66,80,F.slab,C.red);
       tx(`${lapLabel(SK)} 구간`,268,6,26,F.kr,C.dim,{al:'right',w:'700'});tx(pace(LAPS[SK]),268,66,46,F.slab,C.cream,{al:'right'});ctx.restore()},{dx:18,dy:6,a0:.3})}
-  const rb=[T3+BPER*5,T3+BPER*5.5,T3+BPER*6];
+  const rb=[T3+BPER*4,T3+BPER*4.5,T3+BPER*5];
   [['평균페이스',pace(AVGP),C.green],['최고 페이스',pace(MAXP),C.red],['총 거리',(TOTD/1000).toFixed(2)+'km',C.amber]].forEach(([l,v,c],i)=>echo(t,rb[i],()=>{tx(l,90+i*310,1300,28,F.kr,C.dim,{w:'700'});tx(v,90+i*310,1384,68,F.slab,c)},{dx:14,dy:0}));
   if(t>rb[2]+BPER)echo(t,rb[2]+BPER,()=>tx(SPLIT_LINE,540,1530,64,F.pen,C.cream,{al:'center'}),{dx:12,dy:0})}
 
@@ -225,7 +225,7 @@ function sceneZones(t){bg(t,{dim:.55});header(t,T4,'심박존별 시간','가민
       const len=sec>0?Math.max(30,520*sec/ZMAX)*p:0;if(len>0)sprayBar(250,y+6,len,52,col,z+40)});
     tx(zRange(z),150,y+90,22,F.kr,C.dim,{al:'center',w:'700',a:P(t,t0,t0+.2)});
     const x2=250+(sec>0?Math.max(30,520*sec/ZMAX):0)+22;tx(mmss(sec),x2,y+52,46,F.slab,sec>0?C.cream:'rgba(241,230,207,.35)',{a:P(t,t0+.1,t0+.3)});tx(`${Math.round(sec/ZTOT*100)}%`,x2+tw(mmss(sec),46,F.slab)+12,y+50,26,F.kr,col,{w:'900',a:P(t,t0+.1,t0+.3)})});
-  const hb=[T4+BPER*2.2,T4+BPER*2.7];
+  const hb=[T4+BPER*1.5,T4+BPER*1.8];
   [['평균심박수',S.avgHR],['최대심박수',S.maxHR]].forEach(([l,v],k)=>echo(t,hb[k],()=>{const al=k?'right':'left',x=k?990:90;tx(l,x,1270,30,F.kr,C.dim,{al,w:'700'});
     const vw=tw(String(v),92,F.slab),uw=tw('bpm',28,F.kr,'700');tx(String(v),k?x-uw-10:x,1370,92,F.slab,hrCol(v),{al});tx('bpm',k?x:x+vw+10,1370,28,F.kr,C.dim,{al,w:'700'})},{dx:14,dy:0}));
   if(t>hb[1]+BPER*.5){tx(ZONE_LINE,540,1486,62,F.pen,C.cream,{al:'center'});tx(BREAK_LINE,540,1540,26,F.kr,BRK.length?C.amber:C.dim,{al:'center',w:'700'})}}
@@ -244,19 +244,19 @@ let ML=null;
 function sceneLoop(t){bg(t);const lb=beatsFrom(T5,16);
   echo(t,T5,()=>tx('오늘의 러닝',94,156,48,F.pen,C.amber));
   echo(t,T5+BPER/2,()=>gtx(RUN.title,90,275,112,{rot:-.03,seed:5,drips:3}));
-  echo(t,lb[1]+BPER/2,()=>{ctx.save();ctx.translate(880,210);ctx.rotate(-.14);ctx.strokeStyle='#E8433A';ctx.lineWidth=9;ctx.shadowColor='rgba(232,67,58,.8)';ctx.shadowBlur=16;ctx.beginPath();ctx.ellipse(0,0,108,74,0,.2,6.1);ctx.stroke();ctx.shadowBlur=0;ctx.restore();gtx('완주',880,236,64,{al:'center',rot:-.14,fill:['#FFFFFF','#FF5FA2'],glow:'232,67,58',seed:9,drips:2})});
+  echo(t,T5+BPER,()=>{ctx.save();ctx.translate(880,210);ctx.rotate(-.14);ctx.strokeStyle='#E8433A';ctx.lineWidth=9;ctx.shadowColor='rgba(232,67,58,.8)';ctx.shadowBlur=16;ctx.beginPath();ctx.ellipse(0,0,108,74,0,.2,6.1);ctx.stroke();ctx.shadowBlur=0;ctx.restore();gtx('완주',880,236,64,{al:'center',rot:-.14,fill:['#FFFFFF','#FF5FA2'],glow:'232,67,58',seed:9,drips:2})});
   dancer(t,540,880,.95);
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.amber],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.cream]];
-  echo(t,lb[2],()=>{ctx.fillStyle='rgba(10,10,12,.62)';rr(70,905,940,268,20);ctx.fill();ctx.strokeStyle='rgba(246,241,231,.12)';ctx.lineWidth=2;rr(70,905,940,268,20);ctx.stroke()});
-  CR.forEach(([l,v,u,c],i)=>{const t0=lb[2]+BPER/2*i;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=955+row*130;
+  echo(t,T5+BPER*1.5,()=>{ctx.fillStyle='rgba(10,10,12,.62)';rr(70,905,940,268,20);ctx.fill();ctx.strokeStyle='rgba(246,241,231,.12)';ctx.lineWidth=2;rr(70,905,940,268,20);ctx.stroke()});
+  CR.forEach(([l,v,u,c],i)=>{const t0=T5+BPER*1.5+BPER/3*i;const col=i%3,row=Math.floor(i/3);const cx=240+col*300,y=955+row*130;
     echo(t,t0,()=>{tx(l,cx,y,26,F.kr,C.dim,{al:'center',w:'700'});const vw=tw(v,56,F.slab),uw=u?tw(u,22,F.kr,'700')+6:0;tx(v,cx-uw/2,y+66,56,F.slab,c,{al:'center'});if(u)tx(u,cx-uw/2+vw/2+6,y+64,22,F.kr,C.dim,{w:'700'})},{dx:14,dy:0,n:2})});
-  const mt=lb[6];echo(t,mt,()=>{const x=60,y=1215,w=960,h=520;ctx.fillStyle='rgba(20,16,12,.65)';rr(x,y,w,h,24);ctx.fill();ctx.strokeStyle='rgba(242,177,52,.5)';ctx.lineWidth=2;rr(x,y,w,h,24);ctx.stroke();
+  const mt=T5+BPER*2.6;echo(t,mt,()=>{const x=60,y=1215,w=960,h=520;ctx.fillStyle='rgba(20,16,12,.65)';rr(x,y,w,h,24);ctx.fill();ctx.strokeStyle='rgba(242,177,52,.5)';ctx.lineWidth=2;rr(x,y,w,h,24);ctx.stroke();
     tx('러닝 메모',x+40,y+64,48,F.pen,C.amber);ctx.fillStyle=C.faint;ctx.fillRect(x+40,y+82,w-80,2)},{dx:16,dy:6,a0:.25});
   if(t>=mt){const x=60,y=1215,w=960,h=520;const MLN=MemoEmphasis.parse(RUN.review,RUN.reviewMarks);const mo=memoStyle();
     if(!ML){for(let px=64;px>=40;px-=2){mo.px=px;if(MLN.every(l=>MemoEmphasis.width(ctx,l,mo)<=w-110)){ML={px};break}}if(!ML)ML={px:32}}mo.px=ML.px;
     const lh=ML.px*1.22,top=y+96+(h-96-MLN.length*lh)/2+ML.px*.9;
-    MLN.forEach((ln,i)=>{const t1=mt+ECHO*(1+i);if(t<t1)return;mo.k=eo3(P(t,t1+ECHO,t1+ECHO+.4));
+    MLN.forEach((ln,i)=>{const t1=mt+.15+.22*i;if(t<t1)return;mo.k=eo3(P(t,t1+.2,t1+.5));
       ctx.save();ctx.globalAlpha*=eo3(P(t,t1,t1+.2));MemoEmphasis.drawLine(ctx,ln,540,top+i*lh,mo);ctx.restore()})}}
 
 // ---------- timeline (scenes change on the bar / the one-drop; the old page slides out to the left)

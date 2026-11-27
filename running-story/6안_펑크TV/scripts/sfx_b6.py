@@ -18,6 +18,6 @@ def tvon(v=.35):
     whine = np.sin(2 * np.pi * 15600 * t) * np.exp(-t / .2) * .05; return (click + hum + whine) * v
 T1 = near(4.5); T5 = near(19.67)
 ev(tvon(.4), T1)
-lb = after(T5, 8); ev(pop(520, .45), lb[1], 1, .4); ev(pop(700, .3), lb[6], 1, -.2)
+lb = after(T5, 8); ev(pop(520, .45), lb[1], 1, .4); ev(pop(700, .3), T5 + per * 1.6, 1, -.2)
 pk = np.abs(out).max(); out *= 10 ** (-17 / 20) / pk
 wavfile.write(sys.argv[2], SR, (out * 32767).astype(np.int16)); print('sfx peak -17 dBFS')
