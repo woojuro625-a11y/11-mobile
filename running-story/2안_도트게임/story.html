@@ -122,14 +122,19 @@ function sceneOpen(t){
   if(hp<1){kr(INFO.memo,74,ty+80,40,C.yel,{alpha:step(r2,4)*(1-hp*2)});text(INFO.dateLong,74,ty+132,28,F.kr,C.white,{w:'700',alpha:step(r3,4)*(1-hp*2)})}
   if(hp>=1){const mx=70+tw(INFO.title,84,F.kr,'900')+26;kr(INFO.memo,mx,346,32,C.yel,{w:'700'});text(INFO.dateLong,mx,388,22,F.kr,C.white,{w:'700'})}
   if(t<1.2){pxt('PRESS START',540,1700,22,C.yel,{align:'center',alpha:Math.floor(t*4)%2?1:.25})}
-  // capture in a game window, camera explores it with a ▶ cursor
-  const op=P(t,1.55,1.85);if(op>0){const ex=P(t,4.25,4.55);const wx=snap(540-CAP.w*CAP.s/2-18),wy=470,ww=snap(CAP.w*CAP.s+36),wh=1160;
+  // capture in a game window: the WHOLE capture always fits; the focused part is outlined and lifted slightly (never cropped)
+  const op=P(t,1.55,1.85);if(op>0){const ex=P(t,4.25,4.55);const ih=1100,cs=ih/CAP.h,iw=CAP.w*cs;const wx=snap(540-iw/2-PXS*3),wy=480,ww=snap(iw+PXS*6),wh=snap(ih+PXS*6);
     win(wx,wy,ww,wh,op*(1-ex),{title:'RECORD'});
-    if(op>=1&&ex<1){const c=key(t,CAMK);const sc=CAP.s*c.z;ctx.save();ctx.beginPath();ctx.rect(wx+PXS*2,wy+PXS*2,ww-PXS*4,wh-PXS*4);ctx.clip();
-      ctx.translate(540,c.ay);ctx.scale(sc,sc);ctx.translate(-CAP.w/2,-c.fy);ctx.drawImage(IMG.garmin,0,0,CAP.w,CAP.h);ctx.restore();
-      const foc=P(t,2.6,2.75)*(1-P(t,3.8,3.95));if(foc>0){const yy=c.ay;cursorTri(wx-48+Math.round(Math.sin(t*12))*PXS,yy,C.yel);pxt(t<3.05?'MAP':t<3.5?'MEMO':'STATS',wx-12,yy-70,18,C.yel,{align:'right',alpha:foc})}}}
+    if(op>=1&&ex<1){const ix=540-iw/2,iy=wy+PXS*3;ctx.drawImage(IMG.garmin,ix,iy,iw,ih);
+      const REG=[[2.25,3.0,0,0,CAP.h*.32,'MAP'],[3.0,3.6,0,CAP.h*.39,CAP.h*.60,'MEMO'],[3.6,4.2,0,CAP.h*.66,CAP.h,'STATS']];
+      REG.forEach(([a,b,x0,y0,y1,lab])=>{const f=P(t,a,a+.15)*(1-P(t,b-.12,b));if(f<=0)return;const ry=iy+y0*cs,rh=(y1-y0)*cs;const z=1+.1*step(f,3);
+        ctx.fillStyle=`rgba(5,7,26,${.55*f})`;ctx.fillRect(ix,iy,iw,ry-iy);ctx.fillRect(ix,ry+rh,iw,iy+ih-ry-rh);           // dim the rest
+        const cx=540,cy=ry+rh/2;const dw=iw*z,dh=rh*z;const dx=Math.max(PXS,Math.min(W-PXS-dw,cx-dw/2)),dy=cy-dh/2;
+        ctx.fillStyle='#05071A';ctx.fillRect(dx+PXS*2,dy+PXS*2,dw,dh);ctx.drawImage(IMG.garmin,0,y0,CAP.w,y1-y0,dx,dy,dw,dh);
+        ctx.fillStyle=C.yel;[[dx-PXS,dy-PXS,dw+PXS*2,PXS],[dx-PXS,dy+dh,dw+PXS*2,PXS],[dx-PXS,dy-PXS,PXS,dh+PXS*2],[dx+dw,dy-PXS,PXS,dh+PXS*2]].forEach(r=>ctx.fillRect(...r));
+        cursorTri(dx-PXS*7+Math.round(Math.sin(t*12))*PXS,cy,C.yel);ctx.fillStyle=C.yel;ctx.fillRect(dx-PXS,dy-PXS-44,216,44);pxt(lab,dx+PXS*2,dy-PXS-12,22,C.ink,{alpha:f})})}}
   // a dot Star Runner pops on the window's top edge
-  if(t>3.75&&t<4.3){lclear();const p=step(P(t,3.75,3.95),4)*(1-step(P(t,4.15,4.3),4));if(p>0){dot('wave',900,470+(1-p)*80,120)}ctx.save();ctx.beginPath();ctx.rect(0,0,W,470);ctx.clip();lflush();ctx.restore()}
+  if(t>3.75&&t<4.3){lclear();const p=step(P(t,3.75,3.95),4)*(1-step(P(t,4.15,4.3),4));if(p>0){dot('wave',880,480+(1-p)*80,120)}ctx.save();ctx.beginPath();ctx.rect(0,0,W,480);ctx.clip();lflush();ctx.restore()}
   dissolve(P(t,4.45,4.8));
   if(t>=1.6)hud(t,'오늘의 기록');else{pxt(`STAGE ${RUN.stage}`,60,250,20,C.mint,{sh:false})}
 }

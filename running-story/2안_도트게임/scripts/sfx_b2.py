@@ -35,7 +35,7 @@ ev(seq([NOTE(72),NOTE(76),NOTE(79),NOTE(84)],.06,sq,duty=.25,vol=.28),0.05)
 ev(blip(1568),0.6,.8)
 ev(glide(1400,300,.35),1.2,.7)
 ev(openw(),1.55)
-for t0 in (2.6,3.05,3.5): ev(sel(),t0,.8,-.3)
+for t0 in (2.25,3.0,3.6): ev(sel(),t0,.8,-.3)
 ev(noise(.4,d=.15,vol=.3),4.45)
 # stage map
 ev(openw(),4.95)
