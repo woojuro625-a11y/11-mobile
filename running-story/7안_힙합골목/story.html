@@ -76,7 +76,8 @@ function graf(s,px,{fill=['#FFE14A','#FF7A1A'],out='#0E0E10',edge='#F6F1E7',glow
     g2.fillStyle=out;g2.beginPath();g2.roundRect(dx-dw/2-3,Y-px*.1,dw+6,len+6,dw);g2.fill();g2.fillStyle=fill[1];g2.beginPath();g2.roundRect(dx-dw/2,Y-px*.08,dw,len,dw/2);g2.fill();
     g2.beginPath();g2.arc(dx,Y-px*.08+len,dw*.75,0,7);g2.fill()}
   return GCACHE[key]={c,X,Y,w}}
-function gtx(s,x,y,px,o={}){const G=graf(s,px,o);const al=o.al||'left';const ox=al==='center'?G.w/2:al==='right'?G.w:0;ctx.save();ctx.globalAlpha*=(o.a??1);ctx.translate(x,y);ctx.rotate(o.rot||0);ctx.drawImage(G.c,-G.X-ox,-G.Y);ctx.restore()}
+function gtx(s,x,y,px,o={}){ctx.save();ctx.globalAlpha*=(o.a??1);ctx.font=`900 ${px}px "${F.hd}"`;ctx.textAlign=o.al||'left';ctx.textBaseline='alphabetic';      // simple titles: off-white heavy type, a soft shadow, straight, no drips or two-tone fill
+  ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=px*.25;ctx.shadowOffsetY=px*.04;ctx.fillStyle=o.col||'#F3EEE4';ctx.fillText(s,x,y);ctx.restore()}
 // a spray-painted bar: soft overspray, slightly rough top and bottom edges, one drip
 function sprayBar(x,y,w,h,col,seed=1,drip=true){if(w<=1)return;ctx.save();ctx.shadowColor=col;ctx.shadowBlur=18;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x+h*.3,y);
   for(let i=0;i<=12;i++){const u=i/12;ctx.lineTo(x+h*.3+(w-h*.6)*u,y+(rnd(seed*31+i)-.5)*5)}ctx.quadraticCurveTo(x+w+h*.1,y+h/2,x+w-h*.3,y+h);
@@ -174,7 +175,7 @@ function boombox(x,y,w,t){const h=w*.56,k=kickP(t,.12)*Math.min(1,loudAt(t)*3+.2
   ctx.fillStyle='#E8E2D4';ctx.beginPath();ctx.arc(x+w*.45,y+h*.53,h*.04,0,7);ctx.arc(x+w*.55,y+h*.53,h*.04,0,7);ctx.fill();
   for(let i=0;i<6;i++){const on=loudAt(t)*6*(1+.4*k)>i;ctx.fillStyle=on?(i>3?C.red:i>2?C.amber:C.green):'#20232A';ctx.fillRect(x+w*.06+i*w*.045,y+h*.09,w*.035,h*.08)}
   ctx.restore()}
-function header(t,t0,title,sub){echo(t,t0,()=>gtx(title,90,250,80,{rot:-.03,seed:title.length,drips:2}));tx(sub,96,336,32,F.pen,C.cream,{a:P(t,t0+.2,t0+.4)})}
+function header(t,t0,title,sub){echo(t,t0,()=>gtx(title,90,250,76));tx(sub,96,336,32,F.pen,C.cream,{a:P(t,t0+.2,t0+.4)})}
 function header0(t,t0,title,sub){echo(t,t0,()=>{tx(title,90,250,74,F.kd,C.cream);const w=tw(title,74,F.kd);ctx.fillStyle=C.amber;ctx.fillRect(92,272,Math.min(w,90+w*eo3(P(t,t0,t0+.4))),6)});
   tx(sub,92,326,26,F.kr,C.dim,{w:'700',a:P(t,t0+.2,t0+.4)})}
 
@@ -204,8 +205,8 @@ function dancer(t,cx,feetY,sc,{alpha=1}={}){if(!DR)return;const [gw,gh]=DR.size;
 
 // ---------- 0 ~ T1: the alley at night, a boombox on the ground, the title, photos pasted on the brick like posters on the offbeats
 function sceneIntro(t){bg(t);
-  const b=BT;echo(t,b[0],()=>{tx('오늘의 러닝',540,186,40,F.pen,C.amber,{al:'center',ls:6})});
-  echo(t,b[1],()=>gtx(RUN.title,540,380,150,{al:'center',rot:-.04,seed:3,drips:4}));
+  const b=BT;echo(t,b[0],()=>{tx('오늘의 러닝',540,186,34,F.pen,'rgba(243,238,228,.7)',{al:'center',ls:6})});
+  echo(t,b[1],()=>gtx(RUN.title,540,380,140,{al:'center'}));
   echo(t,b[2]+BPER/2,()=>{tx(RUN.memo,540,474,44,F.pen,C.cream,{al:'center'});tx(S.dateLong,540,528,28,F.kr,C.dim,{al:'center',w:'700'})});
   PHOTOS.forEach((im,i)=>{const t0=b[4+i]+BPER/2;const cx=i?775:305,cy=860+(i?40:0),rot=i?.05:-.05,w=400,h=500;
     echo(t,t0,()=>{ctx.save();ctx.translate(cx,cy+(i?0:0));ctx.rotate(rot);const chop=1+.012*offP(t);ctx.scale(chop,chop);ctx.fillStyle=C.cream;ctx.fillRect(-w/2-14,-h/2-14,w+28,h+80);
@@ -300,9 +301,9 @@ function memoStyle(){const COL={num:C.amber,body:C.red,plan:C.green,feel:C.blue,
       else{c.save();c.fillStyle=C.cream;c.fillRect(x,y+9,w*k,3);c.restore()}}}}
 let ML=null;
 function sceneLoop(t){bg(t);const lb=beatsFrom(T5,16);
-  echo(t,T5,()=>tx('오늘의 러닝',94,156,36,F.pen,C.amber,{ls:5}));
-  echo(t,T5+BPER/2,()=>gtx(RUN.title,90,275,112,{rot:-.03,seed:5,drips:3}));
-  echo(t,T5+BPER,()=>{ctx.save();ctx.translate(880,210);ctx.rotate(-.14);ctx.strokeStyle='#E8433A';ctx.lineWidth=9;ctx.shadowColor='rgba(232,67,58,.8)';ctx.shadowBlur=16;ctx.beginPath();ctx.ellipse(0,0,108,74,0,.2,6.1);ctx.stroke();ctx.shadowBlur=0;ctx.restore();gtx('완주',880,236,64,{al:'center',rot:-.14,fill:['#FFFFFF','#FF5FA2'],glow:'232,67,58',seed:9,drips:2})});
+  echo(t,T5,()=>tx('오늘의 러닝',94,156,32,F.pen,'rgba(243,238,228,.7)',{ls:5}));
+  echo(t,T5+BPER/2,()=>gtx(RUN.title,90,270,104));
+  echo(t,T5+BPER,()=>{ctx.save();ctx.translate(880,210);ctx.rotate(-.14);ctx.strokeStyle='#E8433A';ctx.lineWidth=9;ctx.shadowColor='rgba(232,67,58,.8)';ctx.shadowBlur=16;ctx.beginPath();ctx.ellipse(0,0,108,74,0,.2,6.1);ctx.stroke();ctx.shadowBlur=0;ctx.restore();ctx.save();ctx.translate(880,210);ctx.rotate(-.14);gtx('완주',0,22,60,{al:'center'});ctx.restore()});
   dancer(t,540,880,.95);
   const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.amber],['달린시간',mmss(TT),'',C.blue],['평균페이스',pace(AVGP),'',C.green],
     ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.cream]];
