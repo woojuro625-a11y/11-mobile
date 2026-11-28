@@ -1,0 +1,274 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script src="data.js"></script>
+<script src="beat.js"></script>
+<script src="drums.js"></script>
+<script src="bass.js"></script>
+<script src="memo_emphasis.js"></script>
+<script src="lib/three147.min.js"></script><script src="lib/GLTFLoader.js"></script><script src="lib/starrunner_glb.js"></script><script src="lib/starrunner.js"></script><script src="island3d.js"></script>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+const W=1080,H=1920,DUR=30;
+// ---------- per-run text (title / memo are not in the FIT file)
+const RUN={title:'회복 조깅',memo:'ROR 프리런',
+  review:'ROR 프리런\n주말 오전 따듯한 날씨와 함께\n심박오류로 5km 까지 너무 높게 찍혀서\n다시 끼고 정상화\n놀랬네잉',   // keep the memo's own line breaks (\n)
+  reviewMarks:'[[ROR 프리런|key]]\n주말 오전 [[따듯한 날씨|feel]]와 함께\n[[심박오류|body]]로 [[5km]] 까지 [[너무 높게|body]] 찍혀서\n다시 끼고 [[정상화|key]]\n[[놀랬네잉|feel]]',
+  photos:['img/photo1.jpg','img/photo2.jpg','img/photo3.jpg'],photoCaps:['토요일 아침','ROR 프리런','달린 뒤 만난 고양이']};
+// ---------- look: Star Runner washed up on a lovely desert island at golden hour. A real beach photo (sunset, sea, palms, a raft, a bottle) for the opening and ending;
+// a top-down sand photo for the data pages where everything is made of what a castaway finds: words written in the sand, driftwood planks, a scroll from a bottle,
+// a line drawn with a stick, sea-glass colours. Pages change with a wave that washes over the screen and pulls back
+const C={sand:'#E9D7B4',groove:'rgba(96,66,36,.86)',hi:'rgba(255,248,232,.7)',ink:'#3B2A1C',ink2:'rgba(59,42,28,.66)',cream:'#FFF6E5',coral:'#E5604D',sea:'#1C9C9A',deep:'#0E5E6F',sun:'#F3A35B',white:'#FFFFFF'};
+const ZT=['#7C8088','#8E959E','#2F8FD8','#20A464','#E0912A','#DE4A3E'];      // zone colours (존 미만 1 2 3 4 5) as sea glass on sand
+const hrCol=h=>ZT[DATA.zones.filter(b=>h>=b).length];
+const F={hd:'Jua',num:'Fredoka',kr:'Gowun Dodum',hand:'Gaegu',pen:'Gaegu'};   // pen = handwriting in the sand (Gaegu bold reads better than a thin pen script)
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+// ---------- utils
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo3=t=>1-Math.pow(1-t,3),eio3=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+const mmss=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+const pace=s=>{s=Math.round(s);return `${Math.floor(s/60)}'${String(s%60).padStart(2,'0')}"`};
+const dsec=s=>{s=Math.round(s);return s>=60?`${Math.floor(s/60)}분 ${s%60}초`:`${s}초`};
+function tx(s,x,y,px,fam,col,{w='',al='left',a=1,ls=0,maxW=0,sh=0}={}){
+  ctx.save();ctx.globalAlpha*=a;ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.textAlign=al;ctx.textBaseline='alphabetic';ctx.letterSpacing=ls+'px';ctx.fillStyle=col;
+  if(sh){ctx.shadowColor=`rgba(50,25,8,${sh})`;ctx.shadowBlur=px*.3;ctx.shadowOffsetY=px*.05}
+  const m=ctx.measureText(s).width;ctx.translate(x,y);if(maxW&&m>maxW)ctx.scale(maxW/m,1);ctx.fillText(s,0,0);ctx.restore()}
+function tw(s,px,fam,w='',ls=0){ctx.save();ctx.font=`${w} ${px}px "${fam}"`.trim();ctx.letterSpacing=ls+'px';const m=ctx.measureText(s).width;ctx.restore();return m}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+// words written in the sand: a light lip on the low side and a dark groove (reads as pressed into the sand)
+function sandTx(s,x,y,px,fam,o={}){const c=o.col||C.groove;tx(s,x+2,y+3,px,fam,C.hi,{...o,col:undefined});tx(s,x,y,px,fam,c,o)}
+// arrive: rise a little and fade in on the beat (relaxed, like the song's laid-back groove)
+function rise(t,t0,draw,{dy=26,d=.32}={}){if(t<t0)return;const p=eo3(P(t,t0,t0+d));ctx.save();ctx.globalAlpha*=p;ctx.translate(0,dy*(1-p));draw(p);ctx.restore()}
+
+// ---------- the song: a warm, laid-back groove at 84.7 BPM in G (with the bluesy F), short chord stabs on the beat, a sliding bass, wide stereo;
+// played from the very start (no edit) with a 1 s fade-out. Bars start on the chord changes: 2.59, 5.43, 8.26 ... (one bar 2.83 s)
+const BT=BEATS.map(b=>b[0]),DB=BEATS.filter(b=>b[1]).map(b=>b[0]);
+const BPER=BT[1]-BT[0];
+const lastOf=(arr,t)=>{let r=-1e9;for(const x of arr){if(x<=t)r=x;else break}return r};
+const fr=t=>Math.max(0,Math.min(1799,Math.floor(t*60)));const bassAt=t=>BASS[fr(t)],loudAt=t=>LOUD[fr(t)];
+const T1=DB[1],T2=DB[2],T3=DB[3]+BPER*2,T4=DB[5],T5=DB[6];       // capture 5.43 / splits 8.26 / pace 12.51 / zones 16.76 / ending 19.60 (all of it up by 22 s, then it holds)
+const OUTRO=28.3;
+
+// ---------- images
+const IMG={};['garmin','beach','sand'].forEach(n=>{const im=new Image();im.src=`img/${n}.${n==='garmin'?'png':'jpg'}`;IMG[n]=im});
+const PHOTOS=RUN.photos.map(src=>{const im=new Image();im.src=src;return im});
+
+// ---------- data
+const S=DATA.session,TOTD=S.dist,TT=S.time;
+const LAPS=DATA.laps.map(l=>l[1]/(l[0]/1000)),LAPD=DATA.laps.map(l=>l[0]),NL=LAPS.length;
+const LAPR=LAPS.map(s=>Math.round(s));
+const FAST=LAPR.indexOf(Math.min(...LAPR)),SLOW=LAPR.indexOf(Math.max(...LAPR));
+const lapLabel=i=>LAPD[i]>=990?`${i+1}km`:`${(LAPD.slice(0,i+1).reduce((a,b)=>a+b,0)/1000).toFixed(2)}km`;
+const MAXP=(DATA.maxPace&&DATA.maxPace.sec)||Math.min(...LAPS),MAXD=(DATA.maxPace&&DATA.maxPace.dist)||TOTD;
+const PSER=DATA.paceSeries||[];const PSORT=PSER.map(x=>x[1]).sort((a,b)=>a-b);const P98=PSORT.length?PSORT[Math.floor(PSORT.length*.98)]:Math.max(...LAPS);
+const PLO=Math.floor((Math.min(MAXP,PSORT[0]||MAXP,...LAPS)-8)/10)*10,PHI=Math.ceil((Math.max(P98,...LAPS)+10)/10)*10;
+const AVGP=TT/(TOTD/1000);
+const SPLIT_LINE=(()=>{const sp=Math.max(...LAPR)-Math.min(...LAPR);const last=LAPR[NL-1];
+  const full=LAPR.filter((_,i)=>LAPD[i]>=990),h=Math.floor(full.length/2),avg=a=>a.reduce((x,y)=>x+y,0)/Math.max(1,a.length);
+  const faster=full.length>=4&&avg(full.slice(0,h))>avg(full.slice(h))+5;const lastLbl=LAPD[NL-1]>=990?'마지막 1km':`마지막 ${(LAPD[NL-1]/1000).toFixed(2)}km`;
+  if(sp<=20)return'흔들림 없이 같은 리듬으로';if(last===Math.min(...LAPR))return faster?`갈수록 빨라지고 ${lastLbl}는 스퍼트`:`${lastLbl}는 스퍼트`;
+  return faster?'갈수록 빨라진 러닝':'구간마다 리듬을 바꿔 가며'})();
+const ZS=DATA.zoneSec,ZTOT=ZS.reduce((a,b)=>a+b,0),ZMAX=Math.max(...ZS);const ZTOP=ZS.slice(1).indexOf(Math.max(...ZS.slice(1)))+1;
+const ZONE_LINE=`가장 오래 머문 구간은 ${ZTOP}존 ${Math.round(ZS[ZTOP]/ZTOT*100)}%`;
+const zRange=i=>i===0?`${DATA.zones[0]-1} 이하`:i<5?`${DATA.zones[i-1]}~${DATA.zones[i]-1}`:`${DATA.zones[4]} 이상`;
+const BRK=DATA.breaks||[];
+const BREAK_LINE=BRK.length?`중간에 ${BRK.length}번 멈춤 ${dsec(BRK.reduce((a,b)=>a+b.dur,0))}`:'중간 멈춤 없이 연속 달리기';
+const SK=Math.min(NL-1,Math.floor(MAXD/1000));
+const SPRINT_T=SK===NL-1&&LAPR[NL-1]===Math.min(...LAPR)?'마지막 구간 스퍼트':SK===NL-1?'마지막 구간 가장 빠른 순간':`${SK+1}km 구간 가장 빠른 순간`;
+
+// ---------- backgrounds
+// the beach at golden hour: a slow push-in, the sun breathing a little with the song, glints twinkling on the sea, gulls crossing the sky
+function bgBeach(t,{dim=0}={}){const s=1.0+.05*t/30;ctx.save();ctx.translate(540,920);ctx.scale(s,s);ctx.drawImage(IMG.beach,-594,-1056+136,1188,2112);ctx.restore();
+  const sg=ctx.createRadialGradient(160,860,0,160,860,420);sg.addColorStop(0,`rgba(255,200,120,${.18+.08*loudAt(t)})`);sg.addColorStop(1,'rgba(255,200,120,0)');ctx.fillStyle=sg;ctx.fillRect(0,440,700,840);
+  for(let i=0;i<40;i++){const x=rnd(i)*680,y=930+rnd(i+40)*300;const tw_=Math.max(0,Math.sin(t*2.2+i*1.7))**8;if(tw_<.05)continue;ctx.fillStyle=`rgba(255,244,215,${.8*tw_})`;ctx.fillRect(x-5,y-.8,10,1.6);ctx.fillRect(x-.8,y-3,1.6,6)}
+  for(let i=0;i<3;i++){const u=((t/16+i*.37)%1);const x=lerp(1180,-120,u),y=340+90*i+18*Math.sin(u*9+i),f=Math.sin(t*7+i*2);ctx.strokeStyle='rgba(70,40,30,.55)';ctx.lineWidth=3;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x-18,y-6*f);ctx.quadraticCurveTo(x-8,y-8,x,y);ctx.quadraticCurveTo(x+8,y-8,x+18,y-6*f);ctx.stroke()}
+  const sc=ctx.createLinearGradient(0,0,0,560);sc.addColorStop(0,'rgba(70,30,10,.36)');sc.addColorStop(1,'rgba(70,30,10,0)');ctx.fillStyle=sc;ctx.fillRect(0,0,W,560);
+  if(dim>0){const g=ctx.createLinearGradient(0,1000,0,H);g.addColorStop(0,'rgba(40,22,10,0)');g.addColorStop(1,`rgba(40,22,10,${dim})`);ctx.fillStyle=g;ctx.fillRect(0,1000,W,H-1000)}}
+// the sand seen from above: soft swaying palm-leaf shadows from the top right, the sea washing in and out at the bottom edge
+function bgSand(t){ctx.drawImage(IMG.sand,0,0,W,H);
+  ctx.save();ctx.translate(1180,-60);ctx.rotate(.3+.03*Math.sin(t*.9));ctx.fillStyle='rgba(60,40,20,.12)';
+  for(let i=0;i<7;i++){ctx.save();ctx.rotate(.9+i*.22+.02*Math.sin(t*1.3+i));ctx.beginPath();ctx.moveTo(0,0);for(let k=0;k<=20;k++){const u=k/20;ctx.lineTo(-u*520,Math.sin(u*Math.PI)*36)}for(let k=20;k>=0;k--){const u=k/20;ctx.lineTo(-u*520,-Math.sin(u*Math.PI)*36)}ctx.fill();ctx.restore()}ctx.restore();
+  const wy=1800-26*Math.sin(t*1.2)-8*Math.sin(t*2.7);const g=ctx.createLinearGradient(0,wy-30,0,H);g.addColorStop(0,'rgba(28,156,154,0)');g.addColorStop(.25,'rgba(28,156,154,.35)');g.addColorStop(1,'rgba(14,94,111,.55)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W;x+=20)ctx.lineTo(x,wy+10*Math.sin(x*.012+t*1.6));ctx.lineTo(W,H);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=4;ctx.beginPath();for(let x=0;x<=W;x+=20){const y=wy+10*Math.sin(x*.012+t*1.6);x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}
+// a page title written in the sand with a stick, and a smaller note under it
+function header(t,t0,title,sub){rise(t,t0,()=>{sandTx(title,170,232,84,F.hd);const w=tw(title,84,F.hd);ctx.strokeStyle=C.groove;ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();
+    for(let x=0;x<=w*eo3(P(t,t0+.1,t0+.5));x+=6){const y=262+4*Math.sin(x*.05);x?ctx.lineTo(172+x,y):ctx.moveTo(172,y)}ctx.stroke()});
+  rise(t,t0+BPER/2,()=>sandTx(sub,174,318,39,F.pen,{w:'700'}))}
+// the wave that changes pages: it rushes up over the screen right at the cut and pulls back
+function waveWash(t,t0){const p=P(t,t0-.4,t0+.45);if(p<=0||p>=1)return;const h=p<.47?eio3(p/.47):1-eio3((p-.47)/.53);const top=H-h*(H+160);
+  const g=ctx.createLinearGradient(0,top,0,H);g.addColorStop(0,'rgba(120,215,205,.92)');g.addColorStop(.18,'rgba(28,156,154,.96)');g.addColorStop(1,'rgba(14,94,111,1)');
+  const edge=x=>top+22*Math.sin(x*.011+t*3)+14*Math.sin(x*.027-t*2);
+  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W;x+=12)ctx.lineTo(x,edge(x));ctx.lineTo(W,H);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.9)';for(let x=0;x<=W;x+=7){const y=edge(x);const r=5+5*rnd(x);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()}
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=3;for(let k=1;k<4;k++){ctx.beginPath();for(let x=0;x<=W;x+=16){const y=edge(x)+k*60+8*Math.sin(x*.02+k);x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}}
+
+// ---------- castaway props
+const WOOD=document.createElement('canvas');WOOD.width=700;WOOD.height=60;
+function buildWood(){const g=WOOD.getContext('2d');const gr=g.createLinearGradient(0,0,0,60);gr.addColorStop(0,'#B48A5C');gr.addColorStop(.5,'#9A734A');gr.addColorStop(1,'#7A5836');g.fillStyle=gr;g.fillRect(0,0,700,60);
+  for(let i=0;i<26;i++){const y=4+rnd(i)*52;g.strokeStyle=`rgba(${rnd(i+3)>.5?'70,45,25':'225,200,160'},${.18+.2*rnd(i+7)})`;g.lineWidth=1+rnd(i+9)*2;g.beginPath();
+    for(let x=0;x<=700;x+=14){const yy=y+3*Math.sin(x*.01+i)+(rnd(i*31+x)-.5)*1.5;x?g.lineTo(x,yy):g.moveTo(x,yy)}g.stroke()}
+  for(let k=0;k<3;k++){const cx=100+k*230+rnd(k)*60,cy=20+rnd(k+5)*20;g.strokeStyle='rgba(70,45,25,.35)';for(let r=3;r<16;r+=4){g.beginPath();g.ellipse(cx,cy,r*1.8,r*.6,0,0,7);g.stroke()}}}
+function plank(x,y,w,h,p){if(w*p<4)return;ctx.save();ctx.shadowColor='rgba(60,35,15,.45)';ctx.shadowBlur=12;ctx.shadowOffsetY=6;rr(x,y,w*p,h,h*.28);ctx.clip();ctx.drawImage(WOOD,0,0,w*p,60,x,y,w*p,h);ctx.restore();
+  ctx.save();rr(x,y,w*p,h,h*.28);ctx.strokeStyle='rgba(60,38,18,.55)';ctx.lineWidth=2;ctx.stroke();ctx.restore();
+  ctx.fillStyle='#CDB88E';ctx.fillRect(x+14,y-3,10,h+6);ctx.fillStyle='rgba(90,70,40,.5)';for(let k=0;k<4;k++)ctx.fillRect(x+14,y-3+k*(h+6)/4,10,2)}      // a rope tie
+function starfish(x,y,r,col,rot=0){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.fillStyle=col;ctx.beginPath();for(let k=0;k<10;k++){const rr_=k%2?r*.42:r,a=-Math.PI/2+k*Math.PI/5;ctx.lineTo(Math.cos(a)*rr_,Math.sin(a)*rr_)}ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,240,220,.6)';for(let k=0;k<5;k++){const a=-Math.PI/2+k*Math.PI*2/5;for(let j=1;j<4;j++){ctx.beginPath();ctx.arc(Math.cos(a)*r*j/5,Math.sin(a)*r*j/5,r*.06,0,7);ctx.fill()}}ctx.restore()}
+function shell(x,y,r){ctx.save();ctx.translate(x,y);ctx.fillStyle='#F6E2CF';ctx.beginPath();ctx.moveTo(0,r*.6);for(let k=0;k<=8;k++){const a=Math.PI+k/8*Math.PI;ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r*.9)}ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(170,110,80,.7)';ctx.lineWidth=2;for(let k=1;k<8;k++){const a=Math.PI+k/8*Math.PI;ctx.beginPath();ctx.moveTo(0,r*.55);ctx.lineTo(Math.cos(a)*r*.95,Math.sin(a)*r*.85);ctx.stroke()}ctx.restore()}
+function sign(x,y,w,h,draw,{post=true,rot=0}={}){ctx.save();ctx.translate(x,y);ctx.rotate(rot);if(post){ctx.fillStyle='#7A5836';ctx.fillRect(-10,h*.4,20,h*.9)}
+  ctx.shadowColor='rgba(60,35,15,.45)';ctx.shadowBlur=18;ctx.shadowOffsetY=8;rr(-w/2,-h/2,w,h,14);ctx.save();ctx.clip();for(let k=0;k*56<h;k++)ctx.drawImage(WOOD,0,0,700,60,-w/2,-h/2+k*56,w,56);ctx.restore();
+  ctx.shadowColor='transparent';ctx.strokeStyle='rgba(60,38,18,.7)';ctx.lineWidth=3;rr(-w/2,-h/2,w,h,14);ctx.stroke();draw();ctx.restore()}
+function scroll(x,y,w,h,p){ctx.save();ctx.globalAlpha*=p;ctx.shadowColor='rgba(60,35,15,.45)';ctx.shadowBlur=24;ctx.shadowOffsetY=10;const g=ctx.createLinearGradient(x,0,x+w,0);g.addColorStop(0,'#E9D4A8');g.addColorStop(.5,'#F6E9CB');g.addColorStop(1,'#E3CB9A');
+  ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.shadowColor='transparent';[y,y+h].forEach(yy=>{const cg=ctx.createLinearGradient(0,yy-18,0,yy+18);cg.addColorStop(0,'#D8BD87');cg.addColorStop(.5,'#F3E3BF');cg.addColorStop(1,'#C9AA70');ctx.fillStyle=cg;rr(x-14,yy-18,w+28,36,18);ctx.fill()});
+  for(let i=0;i<300;i++){ctx.fillStyle=`rgba(140,100,50,${.05+.08*rnd(i)})`;ctx.fillRect(x+rnd(i*3.1)*w,y+rnd(i*5.7)*h,2,2)}ctx.restore()}
+
+// ---------- Star Runner the castaway in a straw hat (live 3D). Relaxed arms down; shades his eyes and scans the sea, sways to the groove, waves;
+// the hero of the opening and the ending; in the data pages he only strolls along the waterline at the bottom leaving footprints (an easter egg)
+const DPX=330;let DR=null,GLC=null;
+const DEF={bob:0,squash:1,lean:0,yaw:0,roll:0,head:0,headTurn:0,headTilt:0,shR:[0,0,28],shL:[0,0,-28],elR:-14,elL:-14,hipR:0,kneeR:0,hipL:0,kneeL:0,azim:.18};
+function mixPose(a,b,w){const o={};for(const k in DEF){const x=a[k]??DEF[k],y=b[k]??DEF[k];o[k]=Array.isArray(x)?x.map((v,i)=>lerp(v,y[i],w)):lerp(x,y,w)}return o}
+function movePose(mv,t){const e=clamp(.5+loudAt(t)*2,0,1);const bt=(t-BT[0])/BPER,ph=((bt%1)+1)%1;const dip=.5+.5*Math.cos(2*Math.PI*ph);const sw=Math.sin(Math.PI*bt);
+  const o={...DEF,bob:-.025*e*dip,head:3+6*e*dip,roll:2.5*sw*e,headTilt:3*sw};
+  if(mv==='look'){o.shR=[-128,0,-18];o.elR=-62;o.headTurn=-30+14*Math.sin(t*.9);o.yaw=-14;o.head=-4}                                   // shading his eyes, scanning the sea (to the left)
+  if(mv==='sway'){o.shR=[-12*sw,0,26];o.shL=[12*sw,0,-26];o.yaw=8*sw;o.kneeR=8*Math.max(0,sw);o.kneeL=8*Math.max(0,-sw)}
+  if(mv==='wave'){o.shR=[-15,0,-100];o.elR=-40+30*Math.sin(t*9);o.headTilt=8;o.yaw=6}
+  if(mv==='snap'){const c=Math.pow(Math.max(0,Math.cos(Math.PI*(bt-1))),10);o.shR=[-50,0,-6];o.elR=-95-12*c;o.head+=5*c;o.headTurn=8}
+  return o}
+const INTRO_MV=[[0,'look'],[2.4,'wave'],[4.2,'sway']];
+const END_MV=[[T5,'wave'],[T5+BPER*2,'sway'],[DB[7],'snap'],[DB[8],'look'],[DB[9],'sway'],[DB[10],'snap']];
+function seqPose(t,seq){let i=0;seq.forEach(([s],k)=>{if(t>=s)i=k});let o=movePose(seq[i][1],t);if(i>0){const w=eio3(P(t,seq[i][0],seq[i][0]+.45));if(w<1)o=mixPose(movePose(seq[i-1][1],t),o,w)}return o}
+function heroState(t){let o=t<T1?seqPose(t,INTRO_MV):seqPose(t,END_MV);
+  if(t>OUTRO){const u=P(t,OUTRO,OUTRO+.5);o=mixPose(o,{...DEF,head:-4},u);const wv=P(t,OUTRO+.3,OUTRO+.7);if(wv>0){o.shR=[-15,0,lerp(28,-95,eo3(wv))];o.elR=-40+30*Math.sin((t-OUTRO)*9);o.headTilt=8*wv}}
+  return o}
+function walkState(t){const s2=Math.sin(Math.PI*(t-BT[0])/BPER);return{...DEF,yaw:-80,hipR:-24*s2,hipL:24*s2,kneeR:10+26*Math.max(0,s2),kneeL:10+26*Math.max(0,-s2),shR:[20*s2,0,26],shL:[-20*s2,0,-26],elR:-22,elL:-22,bob:-.02*Math.abs(s2),head:4+4*Math.abs(s2)}}
+function dancer(t,cx,feetY,sc){if(!DR)return;const [gw,gh]=DR.size;const k=sc*240/DPX;ctx.drawImage(GLC,cx-gw*k/2,feetY-gh*DR.feet*k,gw*k,gh*k)}
+function stroll(t,t0,t1){const u=P(t,t0,t1),fy=1752;const x=lerp(-80,1160,u);
+  for(let k=0;;k++){const tk=t0+k*BPER/2;if(tk>t-.05)break;const xk=lerp(-80,1160,P(tk,t0,t1))-6;if(xk<-20)continue;const age=t-tk;ctx.fillStyle=`rgba(110,80,45,${.32*clamp(1-age/6)})`;ctx.beginPath();ctx.ellipse(xk,fy+4+(k%2?7:-3),9,5,0,0,7);ctx.fill()}   // footprints
+  dancer(t,x,fy,.32)}
+
+// ---------- 0 ~ T1: the beach at golden hour: the title in the sky, three photos dropped on the sand like polaroids, Star Runner by his raft scanning the sea, then waving
+function sceneIntro(t){bgBeach(t,{dim:.35});const b=BT;
+  rise(t,b[0]+.05,()=>tx('오늘의 러닝',540,170,36,F.hd,C.cream,{al:'center',ls:4,sh:.5}));
+  rise(t,b[1],()=>tx(RUN.title,540,330,140,F.hd,C.white,{al:'center',sh:.55}));
+  rise(t,b[2],()=>{const w=tw(RUN.memo,42,F.hd)+56;ctx.fillStyle=C.coral;rr(540-w/2,376,w,64,32);ctx.fill();tx(RUN.memo,540,421,42,F.hd,C.white,{al:'center'});tx(S.dateLong,540,494,28,F.kr,C.cream,{al:'center',sh:.5})});
+  dancer(t,330,1225,.55);
+  const PL=[[200,1560,-.12],[540,1600,.03],[880,1560,.12]];
+  [0,2,1].forEach(i=>{const im=PHOTOS[i];if(!im)return;const t0=b[3+i]+BPER*.2;if(t<t0)return;const p=eo3(P(t,t0,t0+.35));const [cx,cy,rot]=PL[i];const w=270,h=330;
+    ctx.save();ctx.globalAlpha*=clamp(p*2);ctx.translate(cx,cy-30*(1-p));ctx.rotate(rot);ctx.scale(lerp(1.15,1,p),lerp(1.15,1,p));ctx.shadowColor='rgba(50,28,10,.5)';ctx.shadowBlur=24;ctx.shadowOffsetY=12;
+    ctx.fillStyle='#FBF6EC';ctx.fillRect(-w/2-16,-h/2-16,w+32,h+92);ctx.shadowColor='transparent';const s=Math.max(w/im.width,h/im.height);const sw=w/s,sh=h/s;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,-w/2,-h/2,w,h);
+    ctx.fillStyle='rgba(255,170,90,.12)';ctx.fillRect(-w/2,-h/2,w,h);tx(RUN.photoCaps[i]||'',0,h/2+58,44,F.pen,'#4A3523',{al:'center',maxW:w});ctx.restore()})}
+
+// ---------- T1 ~ T2: the whole Garmin capture on a scroll pulled out of a bottle (never zoomed or covered); driftwood tags beside it
+const CAP={w:1080,h:1431};
+function sceneCapture(t){bgSand(t);header(t,T1,'오늘의 기록','병 속 편지에 남긴 가민 기록 그대로');
+  const cw=560,ch=cw*CAP.h/CAP.w,x=1040-cw,y=400;const p=eo3(P(t,T1+.05,T1+.4));
+  scroll(x-28,y-26,cw+56,ch+52,p);ctx.save();ctx.globalAlpha*=p;ctx.drawImage(IMG.garmin,x,y,cw,ch);ctx.restore();
+  const REG=[[0,.42,'지도'],[.445,.575,'제목'],[.585,1,'기록']];
+  REG.forEach(([a,b,lab],i)=>{const t0=T1+BPER*(1+i*.5);const cy=y+(a+b)/2*ch;rise(t,t0,()=>{plank(40,cy-28,190,56,1);tx(lab,148,cy+14,36,F.hd,C.cream,{al:'center',sh:.4});
+    ctx.strokeStyle=C.groove;ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(238,cy);ctx.lineTo(x-40,cy);ctx.stroke();ctx.beginPath();ctx.moveTo(x-56,cy-12);ctx.lineTo(x-40,cy);ctx.lineTo(x-56,cy+12);ctx.stroke()},{dy:0})});
+  stroll(t,T1,T2)}
+
+// ---------- T2 ~ T3: splits as driftwood planks laid on the sand (longer = faster); km and times written in the sand; a starfish marks the fastest, a shell the slowest
+function sceneSplits(t){bgSand(t);header(t,T2,'구간 기록','1km마다 걸린 시간  나무가 길수록 빠름');
+  const top=390,rh=Math.min(104,880/NL);const BX=230,BW=520,NX=1012;const lo=Math.min(...LAPS)-20,hi=Math.max(...LAPS)+10;
+  LAPS.forEach((s,k)=>{const t0=T2+.1+k*BPER*.36;if(t<t0)return;const p=eo3(P(t,t0,t0+.35));const y=top+k*rh+rh/2;const isF=k===FAST,isS=k===SLOW;const L=lerp(.4,1,(hi-s)/(hi-lo))*BW;
+    ctx.save();ctx.globalAlpha*=clamp(p*2);const lb=lapLabel(k).replace('km','');sandTx(lb,70,y+20,54,F.num,{w:'700',col:isF?'rgba(200,70,50,.92)':C.groove});sandTx('km',78+tw(lb,54,F.num,'700'),y+18,32,F.pen);ctx.restore();
+    plank(BX,y-24,L,48,p);
+    if(p>=.99){ctx.save();ctx.globalAlpha*=P(t,t0+.25,t0+.45);if(isF)starfish(BX+L+34,y,26,C.coral,.3);if(isS)shell(BX+L+34,y+8,24);ctx.restore();
+      sandTx(pace(s),NX,y+20,58,F.num,{al:'right',w:'700',col:isF?'rgba(200,70,50,.92)':C.groove,a:P(t,t0+.2,t0+.4)})}});
+  const ft=T2+BPER*3.6;rise(t,ft,()=>{ctx.strokeStyle=C.groove;ctx.lineWidth=4;ctx.beginPath();for(let x=70;x<=1010;x+=8){const yy=1372+4*Math.sin(x*.04);x>70?ctx.lineTo(x,yy):ctx.moveTo(x,yy)}ctx.stroke();
+    sandTx('평균페이스',72,1440,44,F.pen);sandTx(pace(AVGP),66,1560,130,F.num,{w:'700'});
+    sandTx('가장 빠른 구간과 느린 구간 차이',1008,1440,44,F.pen,{al:'right'});sandTx(dsec(LAPR[SLOW]-LAPR[FAST]),1008,1548,76,F.hd,{al:'right',col:'rgba(200,70,50,.92)'})});
+  stroll(t,T2,T3)}
+
+// ---------- T3 ~ T4: the pace graph drawn in the sand with a stick; the km of the fastest moment washed in coral and drawn slowly; a starfish on the fastest point; a driftwood sign stays to the end
+const GX0=170,GX1=1000,GY0=520,GY1=1020;
+const gx=d=>GX0+d/TOTD*(GX1-GX0),gy=p=>GY0+clamp((p-PLO)/(PHI-PLO))*(GY1-GY0);
+function sceneWave(t){bgSand(t);header(t,T3,'페이스 그래프',`${(TOTD/1000).toFixed(2)}km 실제 페이스를 모래에 그려 보면`);
+  const WS=[];let c=T3+.15;for(let k=0;k<NL;k++){WS.push(c);c+=k===SK?BPER*2:BPER/4}
+  const SK0=WS[SK],SK1=SK0+BPER*2;const kEnd=k=>k<NL-1?(k+1)*1000:TOTD;
+  const revAt=tt=>{let d=0;for(let k=0;k<NL;k++){const q=k===SK?Math.pow(P(tt,SK0,SK1),1.3):eo3(P(tt,WS[k],WS[k]+.22));if(q>0)d=Math.max(d,lerp(k*1000,kEnd(k),q))}return d};
+  const sp=t>=SK0?1:0;
+  for(let p=Math.ceil(PLO/60)*60;p<=PHI;p+=60){const y=gy(p);ctx.strokeStyle='rgba(96,66,36,.28)';ctx.lineWidth=2;ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(GX0,y);ctx.lineTo(GX1,y);ctx.stroke();ctx.setLineDash([]);sandTx(pace(p),GX0-14,y+10,30,F.num,{al:'right',w:'500'})}
+  ctx.strokeStyle=C.groove;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(GX0,GY1+12);ctx.lineTo(GX1,GY1+12);ctx.stroke();
+  for(let k=0;k<=NL;k++){if(k<NL&&k*1000>TOTD-700)continue;const x=gx(Math.min(k*1000,TOTD));sandTx(k===NL?`${(TOTD/1000).toFixed(2)}km`:String(k),x,GY1+58,34,F.num,{al:k===NL?'right':'center',w:'500'})}
+  const sx0=gx(SK*1000),sx1=gx(kEnd(SK));if(sp){ctx.fillStyle='rgba(229,96,77,.16)';rr(sx0,GY0-70,sx1-sx0,GY1-GY0+82,16);ctx.fill()}
+  LAPS.forEach((s,k)=>{if(t<WS[k])return;const x0=gx(k*1000),x1=gx(kEnd(k));const isK=k===SK&&sp;sandTx(pace(s),(x0+x1)/2,GY0-30,isK?36:28,F.num,{al:'center',w:'700',col:isK?'rgba(200,70,50,.95)':C.groove,a:isK?1:1-.4*sp})});
+  const dR=revAt(t);const pts=PSER.filter(q=>q[0]<=dR).map(q=>[gx(q[0]),gy(q[1]),q[0]]);
+  const groove=(arr,col,wd)=>{if(arr.length<2)return;ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle=C.hi;ctx.lineWidth=wd;ctx.beginPath();arr.forEach((q,i)=>i?ctx.lineTo(q[0]+2,q[1]+3):ctx.moveTo(q[0]+2,q[1]+3));ctx.stroke();
+    ctx.strokeStyle=col;ctx.beginPath();arr.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.restore()};
+  groove(pts,C.groove,6);if(sp)groove(pts.filter(q=>q[2]>=SK*1000-30&&q[2]<=kEnd(SK)),'rgba(200,70,50,.95)',9);
+  if(pts.length>1&&dR<TOTD-5){const hd=pts[pts.length-1];ctx.save();ctx.translate(hd[0],hd[1]);ctx.rotate(-.9);ctx.fillStyle='#8A6A44';ctx.fillRect(-4,-120,8,120);ctx.restore()}   // the stick
+  if(t>=SK1){const near=PSER.reduce((a,q)=>Math.abs(q[0]-MAXD)<Math.abs(a[0]-MAXD)?q:a,PSER[0]||[MAXD,MAXP]);const x=gx(near[0]),y=gy(near[1]);starfish(x,y-4,22,C.coral,eo3(P(t,SK1,SK1+.4))*1.2);
+    rise(t,SK1+BPER*.5,()=>sign(380,1215,620,200,()=>{tx(SPRINT_T,-280,-44,36,F.hd,C.cream,{sh:.4});tx('순간 최고',-280,48,26,F.kr,'rgba(255,246,229,.8)',{w:'700'});tx(pace(MAXP),-150,72,92,F.num,'#FFD7C7',{w:'700',sh:.4});
+      tx(`${lapLabel(SK)} 구간`,280,6,26,F.kr,'rgba(255,246,229,.8)',{al:'right',w:'700'});tx(pace(LAPS[SK]),280,70,56,F.num,C.cream,{al:'right',w:'700',sh:.4})},{post:false,rot:-.02}))}
+  const rb=[T3+BPER*4,T3+BPER*4.5,T3+BPER*5];
+  [['평균페이스',pace(AVGP)],['최고 페이스',pace(MAXP)],['총 거리',(TOTD/1000).toFixed(2)+'km']].forEach(([l,v],i)=>rise(t,rb[i],()=>{sandTx(l,72+i*312,1430,41,F.pen);sandTx(v,68+i*312,1516,72,F.num,{w:'700',col:i===1?'rgba(200,70,50,.92)':C.groove})}));
+  rise(t,rb[2]+BPER,()=>sandTx(SPLIT_LINE,72,1606,57,F.pen));
+  stroll(t,T3,T4)}
+
+// ---------- T4 ~ T5: heart rate zones (Garmin order 5존 -> 존 미만) as strips of sea glass in zone colours on the sand; average and max big
+function seaGlass(x,y,w,h,col,p){if(w*p<3)return;ctx.save();ctx.shadowColor='rgba(60,35,15,.35)';ctx.shadowBlur=10;ctx.shadowOffsetY=5;ctx.globalAlpha*=.92;ctx.fillStyle=col;rr(x,y,w*p,h,h/2);ctx.fill();ctx.shadowColor='transparent';
+  ctx.globalAlpha=.45;ctx.fillStyle='#fff';rr(x+10,y+6,Math.max(0,w*p-20),h*.22,h*.11);ctx.fill();ctx.restore()}
+function sceneZones(t){bgSand(t);header(t,T4,'심박존별 시간','가민 심박존 기준');
+  [5,4,3,2,1,0].forEach((z,r)=>{const t0=T4+.1+r*BPER/3;if(t<t0)return;const p=eo3(P(t,t0,t0+.35));const y=400+r*112;const sec=ZS[z];const col=ZT[z];
+    seaGlass(70,y,130,60,col,1);tx(z?`${z}존`:'존 미만',135,y+42,z?32:22,F.hd,C.white,{al:'center',sh:.3});sandTx(zRange(z),135,y+94,28,F.pen,{al:'center'});
+    const L=sec>0?Math.max(20,560*sec/ZMAX):0;if(L>0)seaGlass(232,y+6,L,48,col,p);
+    if(p>.9){const x2=232+L+20;sandTx(mmss(sec),x2,y+50,54,F.num,{w:'700',col:sec>0?C.groove:'rgba(96,66,36,.35)'});sandTx(`${Math.round(sec/ZTOT*100)}%`,x2+tw(mmss(sec),54,F.num,'700')+12,y+48,37,F.pen,{col})}});
+  const hb=[T4+BPER*1.5,T4+BPER*1.8];
+  [['평균심박수',S.avgHR],['최대심박수',S.maxHR]].forEach(([l,v],k)=>rise(t,hb[k],()=>{const al=k?'right':'left',x=k?1008:72;sandTx(l,x,1150,44,F.pen,{al});
+    const vw=tw(String(v),140,F.num,'700'),uw=tw('bpm',41,F.pen);tx(String(v),(k?x-uw-12:x)+2,1293,140,F.num,C.hi,{al,w:'700'});tx(String(v),k?x-uw-12:x,1290,140,F.num,hrCol(v),{al,w:'700'});sandTx('bpm',k?x:x+vw+12,1290,41,F.pen,{al})}));
+  rise(t,hb[1]+BPER*.5,()=>{sandTx(ZONE_LINE,72,1410,60,F.pen);sandTx(BREAK_LINE,72,1468,41,F.pen,{col:BRK.length?'rgba(200,70,50,.92)':C.groove})});
+  stroll(t,T4,T5)}
+
+// ---------- T5 ~ 30: back on the beach at sunset: the title in the sky, a driftwood 완주 sign stuck in the sand, Star Runner waving and swaying by the sign,
+// the stats on a driftwood board, the memo as the letter from the bottle (running-memo-emphasis, castaway style); everything is up by 22 s and holds to the end
+function memoStyle(){const COL={num:C.coral,body:'#C4402F',plan:C.sea,feel:C.sea,key:'#3B2A1C'};
+  return{px:46,headScale:1.12,glow:0,k:0,
+    font:(px,kind)=>kind==='num'?`700 ${Math.round(px*.92)}px "${F.num}"`:`700 ${px}px "${F.hand}"`,
+    color:(kind,k)=>!kind?'#4A3523':k>.5?COL[kind]:'#4A3523',
+    decorate:(c,kind,x,y,w,px,k)=>{if(k<=0)return;c.save();c.lineCap='round';
+      if(kind==='plan'){c.fillStyle='rgba(28,156,154,.2)';c.beginPath();c.roundRect(x-5,y-px*.78,(w+10)*k,px*1.0,px*.4);c.fill()}
+      else if(kind==='body'){c.strokeStyle='#C4402F';c.lineWidth=3.5;c.beginPath();for(let i=0;i<=w*k;i+=3){const yy=y+9+Math.sin(i*.25)*3;i?c.lineTo(x+i,yy):c.moveTo(x+i,yy)}c.stroke()}
+      else if(kind==='feel'){c.strokeStyle=C.sea;c.lineWidth=3;c.beginPath();for(let i=0;i<=w*k;i+=3){const yy=y+10+Math.sin(i*.12)*3;i?c.lineTo(x+i,yy):c.moveTo(x+i,yy)}c.stroke()}
+      else if(kind==='num'){c.fillStyle='rgba(229,96,77,.16)';c.beginPath();c.ellipse(x+w/2,y-px*.3,(w/2+12)*k,px*.6*k,0,0,7);c.fill()}
+      else{c.fillStyle='#3B2A1C';c.fillRect(x,y+9,w*k,3)}c.restore()}}}
+let ML=null;
+function sceneEnd(t){bgBeach(t,{dim:.55});
+  rise(t,T5+.05,()=>{tx('오늘의 러닝',72,150,32,F.hd,C.cream,{ls:4,sh:.5});tx(RUN.title,66,280,112,F.hd,C.white,{sh:.55})});
+  rise(t,T5+BPER*.6,()=>sign(860,250,240,120,()=>tx('완주',0,20,60,F.hd,C.cream,{al:'center',sh:.4}),{post:false,rot:-.06}));
+  dancer(t,540,880,.8);
+  rise(t,T5+BPER*.9,()=>{ctx.save();ctx.shadowColor='rgba(40,20,8,.5)';ctx.shadowBlur=26;ctx.fillStyle='rgba(60,38,20,.72)';rr(50,905,980,300,26);ctx.fill();ctx.restore()});
+  const CR=[['총 거리',(TOTD/1000).toFixed(2),'km',C.cream],['달린시간',mmss(TT),'',C.cream],['평균페이스',pace(AVGP),'',C.sun],
+    ['평균심박수',String(S.avgHR),'bpm',hrCol(S.avgHR)],['최대심박수',String(S.maxHR),'bpm',hrCol(S.maxHR)],['칼로리',String(S.kcal),'kcal',C.cream]];
+  CR.forEach(([l,v,u,c],i)=>{const t0=T5+BPER*(1+.18*i);const col=i%3,row=Math.floor(i/3);const x=96+col*320,y=968+row*136;
+    rise(t,t0,()=>{tx(l,x,y,26,F.kr,'rgba(255,246,229,.75)',{w:'700'});const vw=tw(v,72,F.num,'700');tx(v,x-2,y+76,72,F.num,c,{w:'700'});if(u)tx(u,x+vw+8,y+74,26,F.kr,'rgba(255,246,229,.75)',{w:'700'})},{dy:20})});
+  const mt=T5+BPER*1.8,x=70,y=1250,w=940,h=560;
+  rise(t,mt,p=>{scroll(x,y,w,h,1);tx('러닝 메모',x+44,y+64,34,F.hd,'#6B4C2E');ctx.strokeStyle='rgba(107,76,46,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+44,y+86);ctx.lineTo(x+w-44,y+86);ctx.stroke()},{dy:40});
+  if(t>=mt){const MLN=MemoEmphasis.parse(RUN.review,RUN.reviewMarks);const mo=memoStyle();
+    if(!ML){for(let px=52;px>=34;px-=2){mo.px=px;if(MLN.every(l=>MemoEmphasis.width(ctx,l,mo)<=w-110)){ML={px};break}}if(!ML)ML={px:34}}mo.px=ML.px;
+    const lh=ML.px*1.5,top=y+110+(h-110-MLN.length*lh)/2+ML.px*.9;
+    MLN.forEach((ln,i)=>{const t1=mt+.15+.16*i;if(t<t1)return;const p=eo3(P(t,t1,t1+.3));mo.k=eo3(P(t,t1+.2,t1+.5));ctx.save();ctx.globalAlpha*=p;MemoEmphasis.drawLine(ctx,ln,540,top+i*lh,mo);ctx.restore()})}}
+
+// ---------- timeline: pages change on the bar with a wave washing over the screen and pulling back
+const SCENES=[[0,sceneIntro],[T1,sceneCapture],[T2,sceneSplits],[T3,sceneWave],[T4,sceneZones],[T5,sceneEnd]];
+function render(t){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';ctx.fillStyle='#E9D7B4';ctx.fillRect(0,0,W,H);
+  if(DR)DR.draw(t<T1||t>=T5?heroState(t):walkState(t));
+  let k=0;SCENES.forEach(([s],i)=>{if(t>=s)k=i});SCENES[k][1](t);
+  SCENES.slice(1).forEach(([s])=>waveWash(t,s));
+  const fi=1-P(t,0,.6);if(fi>0){ctx.fillStyle=`rgba(40,20,8,${fi})`;ctx.fillRect(0,0,W,H)}}
+window.render=render;window.DUR=DUR;
+(async()=>{buildWood();await Promise.all([...Object.values(IMG),...PHOTOS].map(im=>im.complete?0:new Promise(r=>{im.onload=r;im.onerror=r})));
+  const fams=[[F.hd,''],[F.num,'500'],[F.num,'700'],[F.kr,''],[F.kr,'700'],[F.hand,'700'],[F.pen,'']];
+  await Promise.all(fams.map(([f,w])=>document.fonts.load(`${w} 40px "${f}"`,'가나다ABC123')));await document.fonts.ready;
+  GLC=document.createElement('canvas');DR=await Island3D.init(GLC,{px:DPX});window.READY=true;
+  const q=new URLSearchParams(location.search);if(q.has('t'))render(+q.get('t'));else{const s=performance.now();(function loop(){render(((performance.now()-s)/1000)%DUR);requestAnimationFrame(loop)})()}})();
+</script></body></html>
