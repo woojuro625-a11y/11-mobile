@@ -39,7 +39,10 @@ ps=[]
 for i in range(0,len(rows),2):
     w=rows[max(0,i-4):i+5];v=sum(q['sp'] for q in w)/len(w)   # ~9 s moving average (GPS noise only)
     if v>1.5: ps.append([round(rows[i]['d']),round(1000/v,1)])
-mxsp=max((r['sp'] for r in rows),default=0);mi=max(range(len(rows)),key=lambda k:rows[k]['sp'])
+# fastest moment: a 5 s average (not one GPS sample), skipping the first and last 200 m where GPS jumps at start and stop
+tot=rows[-1]['d'] if rows else 0;cand=[k for k in range(2,len(rows)-2) if 200<=rows[k]['d']<=tot-200] or list(range(len(rows)))
+sp5=lambda k:sum(q['sp'] for q in rows[max(0,k-2):k+3])/len(rows[max(0,k-2):k+3])
+mi=max(cand,key=sp5) if cand else 0;mxsp=sp5(mi) if rows else 0
 D={'paceSeries':ps,'maxPace':{'sec':round(1000/mxsp,1) if mxsp>0 else None,'dist':round(rows[mi]['d'])},'route':route,'hr':hrs,'laps':L,'zoneSec':zsec,'zones':zones,'session':info}
 open(out,'w').write('const DATA='+json.dumps(D,ensure_ascii=False)+';\n')
 print(json.dumps(info,ensure_ascii=False),'laps',len(L),'zones',zones,zsec,'hr buckets',len(hrs),'records',len(rows))
