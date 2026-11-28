@@ -226,15 +226,28 @@ function sceneCapture(t){bg(t,{cy:900,rays:.6});header(t,T1,'오늘의 기록','
 
 // ---------- T2 ~ T3: splits as 70s stripe pills, 1km to the last km top to bottom
 function sceneSplits(t){bg(t,{cy:1000,rays:.5});header(t,T2,'구간 기록','1km마다 걸린 시간  막대가 길수록 빠름');
-  const lo=Math.min(...LAPS)-25,hi=Math.max(...LAPS)+15;const rh=Math.min(112,900/NL);
-  LAPS.forEach((s,k)=>{const t0=T2+.05+k*BPER/2+(k%2?BPER*.08:0);const q=boing(t,t0,.3);if(q<0)return;const y=420+k*rh;const isF=k===FAST,isS=k===SLOW;
-    const len=lerp(220,560,(hi-s)/(hi-lo))*clamp(q);const cols=isF?[C.red,C.orange,C.mustard]:isS?[C.teal,'#5BB5B0','#9AD3CF']:[C.brown,C.orange,C.mustard];
-    tx(lapLabel(k),90,y+56,38,F.kd,C.brown,{maxW:100});
-    ctx.save();rr(200,y+10,len,64,32);ctx.clip();cols.forEach((c,j)=>{ctx.fillStyle=c;ctx.fillRect(200,y+10+j*21.3,len,22)});ctx.restore();
-    if(isF||isS){const tg=isF?'가장 빠름':'가장 느림';const tw_=tw(tg,26,F.kd)+28;ctx.fillStyle=C.cream2;rr(214,y+24,tw_,36,18);ctx.fill();tx(tg,214+tw_/2,y+51,26,F.kd,isF?C.red:C.teal,{al:'center'})}
-    tx(pace(s),200+len+22,y+62,50,F.retro,isF?C.red:isS?C.teal:C.brown)});
-  const ft=T2+BPER*4.5;const q=boing(t,ft);if(q>=0){tx('평균페이스',92,1400,30,F.kr,C.brown2,{w:'700'});retroTx(pace(AVGP),90,1490,82,F.retro,{cols:[C.mustard],off:4,face:C.green});
-    tx('가장 빠른 구간과 느린 구간 차이',990,1400,30,F.kr,C.brown2,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),990,1482,60,F.kd,C.orange,{al:'right'})}}
+  // a 70s chart card (same family as the pace graph card): numbered badges, slim warm bars, times in their own right-hand column; only the fastest and slowest get colour
+  const CX0=60,CY0=380,CW=960,CH=1180;const ck=boing(t,T2,.4);if(ck<0)return;
+  ctx.save();ctx.translate(540,CY0+CH/2);ctx.scale(ck,ck);ctx.translate(-540,-(CY0+CH/2));
+  ctx.fillStyle=C.brown;rr(CX0+12,CY0+12,CW,CH,36);ctx.fill();ctx.fillStyle=C.cream2;rr(CX0,CY0,CW,CH,36);ctx.fill();ctx.strokeStyle=C.brown;ctx.lineWidth=4;rr(CX0,CY0,CW,CH,36);ctx.stroke();
+  [C.orange,C.mustard,C.brown].forEach((col,j)=>{ctx.fillStyle=col;ctx.fillRect(CX0+40,CY0+36+j*10,120-j*30,6)});
+  tx('1KM SPLITS',CX0+CW-40,CY0+50,22,F.kr,C.brown2,{al:'right',w:'700',ls:4});
+  const top=CY0+96,bot=CY0+CH-250,rh=Math.min(104,(bot-top)/NL);const BX=CX0+200,BW=CW-200-230,NX=CX0+CW-44;
+  const lo=Math.min(...LAPS)-20,hi=Math.max(...LAPS)+10;
+  LAPS.forEach((s,k)=>{const t0=T2+.15+k*BPER/2;if(t<t0)return;const p=eo3(P(t,t0,t0+.4));const y=top+k*rh+rh/2;const isF=k===FAST,isS=k===SLOW;
+    const fill=isF?C.red:isS?C.teal:'#E2A24A';const L=lerp(.42,1,(hi-s)/(hi-lo))*BW;
+    if(k>0){ctx.strokeStyle=C.brown3;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(CX0+40,y-rh/2);ctx.lineTo(CX0+CW-40,y-rh/2);ctx.stroke()}
+    ctx.save();ctx.globalAlpha*=clamp(p*2);const lb=lapLabel(k).replace('km','');tx(lb,CX0+44,y+14,40,F.retro,isF?C.red:isS?C.teal:C.brown,{w:'900'});
+    tx('km',CX0+50+tw(lb,40,F.retro,'900'),y+13,22,F.kr,C.brown2,{w:'700'});ctx.restore();
+    ctx.fillStyle='rgba(90,52,32,.08)';rr(BX,y-16,BW,32,16);ctx.fill();                                                                          // the track
+    if(L*p>4){ctx.fillStyle=fill;rr(BX,y-16,L*p,32,16);ctx.fill();ctx.fillStyle='rgba(255,255,255,.28)';rr(BX+8,y-11,Math.max(0,L*p-16),6,3);ctx.fill()}   // the bar + a soft shine
+    const a=P(t,t0+.15,t0+.4);tx(pace(s),NX,y+16,48,F.retro,isF?C.red:isS?C.teal:C.brown,{al:'right',w:'900',a});
+    if(isF||isS){const tg=isF?'가장 빠름':'가장 느림';ctx.save();ctx.globalAlpha*=a;const w=tw(tg,22,F.kr,'700')+24;const x=BX+L*p+14;
+      if(x+w<NX-tw(pace(s),48,F.retro,'900')-16){ctx.strokeStyle=fill;ctx.lineWidth=2.5;rr(x,y-17,w,34,17);ctx.stroke();tx(tg,x+w/2,y+8,22,F.kr,fill,{al:'center',w:'700'})}ctx.restore()}});
+  const ft=T2+BPER*4.5;if(t>=ft){const a=eo3(P(t,ft,ft+.3));ctx.save();ctx.globalAlpha*=a;ctx.fillStyle=C.brown;ctx.fillRect(CX0+40,CY0+CH-220,CW-80,3);
+    tx('평균페이스',CX0+44,CY0+CH-160,28,F.kr,C.brown2,{w:'700'});tx(pace(AVGP),CX0+40,CY0+CH-62,96,F.retro,C.green,{w:'900'});
+    tx('가장 빠른 구간과 느린 구간 차이',CX0+CW-44,CY0+CH-160,28,F.kr,C.brown2,{al:'right',w:'700'});tx(dsec(LAPR[SLOW]-LAPR[FAST]),CX0+CW-44,CY0+CH-72,64,F.kd,C.orange,{al:'right'});ctx.restore()}
+  ctx.restore()}
 
 // ---------- T3 ~ T4: pace graph; the km of the fastest moment gets a soft warm column, then a retro badge stays to the end of the scene
 const GX0=170,GX1=960,GY0=600,GY1=1090;
